@@ -607,7 +607,7 @@ OpenAI 和 Claude 已经分别提供了实现 Agent 状态栏所需的大部分�
 相关概念笔记：
 
 - [Agent 状态栏：不是文件系统，而是状态暴露机制](agent-status-bar-as-state-exposure.md)
-- [Context Engineering 与 ICL：系统侧信息供给与模型侧临时适应](context-engineering-and-icl.md)
+- [Context Engineering 的本质及其与 ICL 的关系](context-engineering-and-icl.md)
 
 ## 10. 官方资料
 
