@@ -1,0 +1,984 @@
+{
+  "generated_from": {
+    "path": "chapter1/context/validation/latest.json",
+    "sha256": "1bd60e9548d7732820e6c8f73b565ee397b42c8d480f1ee2a120b6f81833913b",
+    "schema_version": "1.0",
+    "created_at": "2026-07-29T15:40:45.722324+00:00"
+  },
+  "run": {
+    "experiment_id": "1-1",
+    "evidence_mode": "real_api",
+    "canonical_source": "book/chapter1.md#实验-1-1-上下文的关键作用",
+    "command": [
+      "/Users/boj/miniconda3/bin/python",
+      "run_experiment_1_1.py",
+      "--provider",
+      "kimi",
+      "--model",
+      "kimi-k3",
+      "--max-iterations",
+      "5",
+      "--output-dir",
+      "validation/real_20260729T153329Z"
+    ],
+    "host": {
+      "platform": "macOS-26.3-arm64-arm-64bit",
+      "python": "3.11.4 (main, Jul  5 2023, 08:40:20) [Clang 14.0.6 ]",
+      "machine": "arm64"
+    },
+    "dependencies": {
+      "openai": "1.97.1",
+      "requests": "2.32.5"
+    },
+    "repository": {
+      "commit": "4a7f37cf278bd15948c409f14533017c4c7fbc29",
+      "branch": "main",
+      "worktree_dirty": true
+    },
+    "expected_numbers": [
+      "9602895.73",
+      "2400723.93"
+    ]
+  },
+  "metric_definitions": {
+    "completed": "A non-empty terminal text response was observed; this is not correctness.",
+    "canonical_answer_correct": "The final answer contains both canonical numeric strings after removing commas, dollar signs, and spaces.",
+    "repeated_tool_actions": "Total tool calls minus unique (tool name, canonical JSON arguments) signatures.",
+    "context_contract": "Checks the payload actually sent to the provider, not only the CLI flag."
+  },
+  "arms": [
+    {
+      "mode": "full",
+      "completed": true,
+      "canonical_answer_correct": true,
+      "iterations": 3,
+      "elapsed_seconds": 46.610124,
+      "tool_action_count": 4,
+      "repeated_tool_actions": 0,
+      "hit_iteration_ceiling": false,
+      "final_answer": "**  \n- **Annual total:** **$9,602,895.73 USD**  \n- **Quarterly average:** **$2,400,723.93 USD**",
+      "tool_call_sequence": [
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 2100000,
+            "from_currency": "EUR",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 2100000,
+            "from_currency": "EUR",
+            "to_currency": "USD",
+            "converted_amount": 2282608.7,
+            "exchange_rate": 1.087,
+            "timestamp": "2026-07-29T23:33:45.092761"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 1800000,
+            "from_currency": "GBP",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 1800000,
+            "from_currency": "GBP",
+            "to_currency": "USD",
+            "converted_amount": 2278481.01,
+            "exchange_rate": 1.2658,
+            "timestamp": "2026-07-29T23:33:45.092960"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 380000000,
+            "from_currency": "JPY",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 380000000,
+            "from_currency": "JPY",
+            "to_currency": "USD",
+            "converted_amount": 2541806.02,
+            "exchange_rate": 0.0067,
+            "timestamp": "2026-07-29T23:33:45.093087"
+          }
+        },
+        {
+          "tool_name": "code_interpreter",
+          "arguments": {
+            "code": "q1_usd = 2_500_000\nq2_usd = 2_282_608.70\nq3_usd = 2_278_481.01\nq4_usd = 2_541_806.02\nquarters = [q1_usd, q2_usd, q3_usd, q4_usd]\nannual_total = sum(quarters)\nquarterly_average = annual_total / 4\nprint(f\"Quarterly USD values: {quarters}\")\nprint(f\"Annual total: ${annual_total:,.2f}\")\nprint(f\"Quarterly average: ${quarterly_average:,.2f}\")"
+          },
+          "result": {
+            "code": "q1_usd = 2_500_000\nq2_usd = 2_282_608.70\nq3_usd = 2_278_481.01\nq4_usd = 2_541_806.02\nquarters = [q1_usd, q2_usd, q3_usd, q4_usd]\nannual_total = sum(quarters)\nquarterly_average = annual_total / 4\nprint(f\"Quarterly USD values: {quarters}\")\nprint(f\"Annual total: ${annual_total:,.2f}\")\nprint(f\"Quarterly average: ${quarterly_average:,.2f}\")",
+            "result": null,
+            "output": "Quarterly USD values: [2500000, 2282608.7, 2278481.01, 2541806.02]\nAnnual total: $9,602,895.73\nQuarterly average: $2,400,723.93\n",
+            "variables": {
+              "q1_usd": 2500000,
+              "q2_usd": 2282608.7,
+              "q3_usd": 2278481.01,
+              "q4_usd": 2541806.02,
+              "quarters": [
+                2500000,
+                2282608.7,
+                2278481.01,
+                2541806.02
+              ],
+              "annual_total": 9602895.73,
+              "quarterly_average": 2400723.9325
+            },
+            "success": true
+          }
+        }
+      ],
+      "request_role_vectors": [
+        [
+          "system",
+          "user"
+        ],
+        [
+          "system",
+          "user",
+          "assistant",
+          "tool",
+          "tool",
+          "tool"
+        ],
+        [
+          "system",
+          "user",
+          "assistant",
+          "tool",
+          "tool",
+          "tool",
+          "assistant",
+          "tool"
+        ]
+      ],
+      "context_contract": {
+        "has_provider_response_ids": true,
+        "turn_count": 3,
+        "request_roles": [
+          [
+            "system",
+            "user"
+          ],
+          [
+            "system",
+            "user",
+            "assistant",
+            "tool",
+            "tool",
+            "tool"
+          ],
+          [
+            "system",
+            "user",
+            "assistant",
+            "tool",
+            "tool",
+            "tool",
+            "assistant",
+            "tool"
+          ]
+        ],
+        "tools_present_every_turn": true,
+        "history_present_after_first_turn": true,
+        "reasoning_retained_after_first_turn": true,
+        "required_checks": [
+          "has_provider_response_ids",
+          "tools_present_every_turn",
+          "history_present_after_first_turn",
+          "reasoning_retained_after_first_turn"
+        ],
+        "passed": true
+      },
+      "usage": {
+        "prompt_tokens": 3596,
+        "completion_tokens": 825,
+        "total_tokens": 4421,
+        "cached_prompt_tokens": 1536,
+        "reasoning_tokens": 228
+      }
+    },
+    {
+      "mode": "no_history",
+      "completed": false,
+      "canonical_answer_correct": false,
+      "iterations": 5,
+      "elapsed_seconds": 64.273835,
+      "tool_action_count": 15,
+      "repeated_tool_actions": 12,
+      "hit_iteration_ceiling": true,
+      "final_answer": null,
+      "tool_call_sequence": [
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 2100000,
+            "from_currency": "EUR",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 2100000,
+            "from_currency": "EUR",
+            "to_currency": "USD",
+            "converted_amount": 2282608.7,
+            "exchange_rate": 1.087,
+            "timestamp": "2026-07-29T23:34:27.457479"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 1800000,
+            "from_currency": "GBP",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 1800000,
+            "from_currency": "GBP",
+            "to_currency": "USD",
+            "converted_amount": 2278481.01,
+            "exchange_rate": 1.2658,
+            "timestamp": "2026-07-29T23:34:27.457537"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 380000000,
+            "from_currency": "JPY",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 380000000,
+            "from_currency": "JPY",
+            "to_currency": "USD",
+            "converted_amount": 2541806.02,
+            "exchange_rate": 0.0067,
+            "timestamp": "2026-07-29T23:34:27.457626"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 2100000,
+            "from_currency": "EUR",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 2100000,
+            "from_currency": "EUR",
+            "to_currency": "USD",
+            "converted_amount": 2282608.7,
+            "exchange_rate": 1.087,
+            "timestamp": "2026-07-29T23:34:40.244202"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 1800000,
+            "from_currency": "GBP",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 1800000,
+            "from_currency": "GBP",
+            "to_currency": "USD",
+            "converted_amount": 2278481.01,
+            "exchange_rate": 1.2658,
+            "timestamp": "2026-07-29T23:34:40.244264"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 380000000,
+            "from_currency": "JPY",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 380000000,
+            "from_currency": "JPY",
+            "to_currency": "USD",
+            "converted_amount": 2541806.02,
+            "exchange_rate": 0.0067,
+            "timestamp": "2026-07-29T23:34:40.244310"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 2100000,
+            "from_currency": "EUR",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 2100000,
+            "from_currency": "EUR",
+            "to_currency": "USD",
+            "converted_amount": 2282608.7,
+            "exchange_rate": 1.087,
+            "timestamp": "2026-07-29T23:34:52.677636"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 1800000,
+            "from_currency": "GBP",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 1800000,
+            "from_currency": "GBP",
+            "to_currency": "USD",
+            "converted_amount": 2278481.01,
+            "exchange_rate": 1.2658,
+            "timestamp": "2026-07-29T23:34:52.677692"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 380000000,
+            "from_currency": "JPY",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 380000000,
+            "from_currency": "JPY",
+            "to_currency": "USD",
+            "converted_amount": 2541806.02,
+            "exchange_rate": 0.0067,
+            "timestamp": "2026-07-29T23:34:52.677737"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 2100000,
+            "from_currency": "EUR",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 2100000,
+            "from_currency": "EUR",
+            "to_currency": "USD",
+            "converted_amount": 2282608.7,
+            "exchange_rate": 1.087,
+            "timestamp": "2026-07-29T23:35:03.478723"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 1800000,
+            "from_currency": "GBP",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 1800000,
+            "from_currency": "GBP",
+            "to_currency": "USD",
+            "converted_amount": 2278481.01,
+            "exchange_rate": 1.2658,
+            "timestamp": "2026-07-29T23:35:03.478779"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 380000000,
+            "from_currency": "JPY",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 380000000,
+            "from_currency": "JPY",
+            "to_currency": "USD",
+            "converted_amount": 2541806.02,
+            "exchange_rate": 0.0067,
+            "timestamp": "2026-07-29T23:35:03.478820"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 2100000,
+            "from_currency": "EUR",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 2100000,
+            "from_currency": "EUR",
+            "to_currency": "USD",
+            "converted_amount": 2282608.7,
+            "exchange_rate": 1.087,
+            "timestamp": "2026-07-29T23:35:20.006118"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 1800000,
+            "from_currency": "GBP",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 1800000,
+            "from_currency": "GBP",
+            "to_currency": "USD",
+            "converted_amount": 2278481.01,
+            "exchange_rate": 1.2658,
+            "timestamp": "2026-07-29T23:35:20.006175"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 380000000,
+            "from_currency": "JPY",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 380000000,
+            "from_currency": "JPY",
+            "to_currency": "USD",
+            "converted_amount": 2541806.02,
+            "exchange_rate": 0.0067,
+            "timestamp": "2026-07-29T23:35:20.006214"
+          }
+        }
+      ],
+      "request_role_vectors": [
+        [
+          "system",
+          "user"
+        ],
+        [
+          "system",
+          "user"
+        ],
+        [
+          "system",
+          "user"
+        ],
+        [
+          "system",
+          "user"
+        ],
+        [
+          "system",
+          "user"
+        ]
+      ],
+      "context_contract": {
+        "has_provider_response_ids": true,
+        "turn_count": 5,
+        "request_roles": [
+          [
+            "system",
+            "user"
+          ],
+          [
+            "system",
+            "user"
+          ],
+          [
+            "system",
+            "user"
+          ],
+          [
+            "system",
+            "user"
+          ],
+          [
+            "system",
+            "user"
+          ]
+        ],
+        "only_static_prefix_and_user_every_turn": true,
+        "tools_still_present": true,
+        "required_checks": [
+          "has_provider_response_ids",
+          "only_static_prefix_and_user_every_turn",
+          "tools_still_present"
+        ],
+        "passed": true
+      },
+      "usage": {
+        "prompt_tokens": 3330,
+        "completion_tokens": 1686,
+        "total_tokens": 5016,
+        "cached_prompt_tokens": 2560,
+        "reasoning_tokens": 582
+      }
+    },
+    {
+      "mode": "no_reasoning",
+      "completed": true,
+      "canonical_answer_correct": true,
+      "iterations": 3,
+      "elapsed_seconds": 39.611709,
+      "tool_action_count": 4,
+      "repeated_tool_actions": 0,
+      "hit_iteration_ceiling": false,
+      "final_answer": "Annual total revenue: **$9,602,895.73 USD**; Quarterly average revenue: **$2,400,723.93 USD**",
+      "tool_call_sequence": [
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 2100000,
+            "from_currency": "EUR",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 2100000,
+            "from_currency": "EUR",
+            "to_currency": "USD",
+            "converted_amount": 2282608.7,
+            "exchange_rate": 1.087,
+            "timestamp": "2026-07-29T23:35:34.270321"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 1800000,
+            "from_currency": "GBP",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 1800000,
+            "from_currency": "GBP",
+            "to_currency": "USD",
+            "converted_amount": 2278481.01,
+            "exchange_rate": 1.2658,
+            "timestamp": "2026-07-29T23:35:34.270556"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 380000000,
+            "from_currency": "JPY",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 380000000,
+            "from_currency": "JPY",
+            "to_currency": "USD",
+            "converted_amount": 2541806.02,
+            "exchange_rate": 0.0067,
+            "timestamp": "2026-07-29T23:35:34.270836"
+          }
+        },
+        {
+          "tool_name": "code_interpreter",
+          "arguments": {
+            "code": "q1_usd = 2500000.00          # Q1 already in USD\nq2_usd = 2282608.70          # Q2: 2.1M EUR -> USD\nq3_usd = 2278481.01          # Q3: 1.8M GBP -> USD\nq4_usd = 2541806.02          # Q4: 380M JPY -> USD\n\nquarters = [q1_usd, q2_usd, q3_usd, q4_usd]\nannual_total = sum(quarters)\nquarterly_average = annual_total / 4\n\nprint(f\"Q1 (USD): ${q1_usd:,.2f}\")\nprint(f\"Q2 (EUR->USD): ${q2_usd:,.2f}\")\nprint(f\"Q3 (GBP->USD): ${q3_usd:,.2f}\")\nprint(f\"Q4 (JPY->USD): ${q4_usd:,.2f}\")\nprint(f\"Annual total: ${annual_total:,.2f}\")\nprint(f\"Quarterly average: ${quarterly_average:,.2f}\")"
+          },
+          "result": {
+            "code": "q1_usd = 2500000.00          # Q1 already in USD\nq2_usd = 2282608.70          # Q2: 2.1M EUR -> USD\nq3_usd = 2278481.01          # Q3: 1.8M GBP -> USD\nq4_usd = 2541806.02          # Q4: 380M JPY -> USD\n\nquarters = [q1_usd, q2_usd, q3_usd, q4_usd]\nannual_total = sum(quarters)\nquarterly_average = annual_total / 4\n\nprint(f\"Q1 (USD): ${q1_usd:,.2f}\")\nprint(f\"Q2 (EUR->USD): ${q2_usd:,.2f}\")\nprint(f\"Q3 (GBP->USD): ${q3_usd:,.2f}\")\nprint(f\"Q4 (JPY->USD): ${q4_usd:,.2f}\")\nprint(f\"Annual total: ${annual_total:,.2f}\")\nprint(f\"Quarterly average: ${quarterly_average:,.2f}\")",
+            "result": null,
+            "output": "Q1 (USD): $2,500,000.00\nQ2 (EUR->USD): $2,282,608.70\nQ3 (GBP->USD): $2,278,481.01\nQ4 (JPY->USD): $2,541,806.02\nAnnual total: $9,602,895.73\nQuarterly average: $2,400,723.93\n",
+            "variables": {
+              "q1_usd": 2500000.0,
+              "q2_usd": 2282608.7,
+              "q3_usd": 2278481.01,
+              "q4_usd": 2541806.02,
+              "quarters": [
+                2500000.0,
+                2282608.7,
+                2278481.01,
+                2541806.02
+              ],
+              "annual_total": 9602895.73,
+              "quarterly_average": 2400723.9325
+            },
+            "success": true
+          }
+        }
+      ],
+      "request_role_vectors": [
+        [
+          "system",
+          "user"
+        ],
+        [
+          "system",
+          "user",
+          "assistant",
+          "tool",
+          "tool",
+          "tool"
+        ],
+        [
+          "system",
+          "user",
+          "assistant",
+          "tool",
+          "tool",
+          "tool",
+          "assistant",
+          "tool"
+        ]
+      ],
+      "context_contract": {
+        "has_provider_response_ids": true,
+        "turn_count": 3,
+        "request_roles": [
+          [
+            "system",
+            "user"
+          ],
+          [
+            "system",
+            "user",
+            "assistant",
+            "tool",
+            "tool",
+            "tool"
+          ],
+          [
+            "system",
+            "user",
+            "assistant",
+            "tool",
+            "tool",
+            "tool",
+            "assistant",
+            "tool"
+          ]
+        ],
+        "provider_generated_reasoning": true,
+        "reasoning_removed_from_history": true,
+        "tool_and_result_history_retained": true,
+        "required_checks": [
+          "has_provider_response_ids",
+          "provider_generated_reasoning",
+          "reasoning_removed_from_history",
+          "tool_and_result_history_retained"
+        ],
+        "passed": true
+      },
+      "usage": {
+        "prompt_tokens": 3833,
+        "completion_tokens": 998,
+        "total_tokens": 4831,
+        "cached_prompt_tokens": 2048,
+        "reasoning_tokens": 248
+      }
+    },
+    {
+      "mode": "no_tool_calls",
+      "completed": true,
+      "canonical_answer_correct": false,
+      "iterations": 1,
+      "elapsed_seconds": 94.72222,
+      "tool_action_count": 0,
+      "repeated_tool_actions": 0,
+      "hit_iteration_ceiling": false,
+      "final_answer": "The annual total and quarterly average cannot be numerically computed because no currency-conversion tool observations (exchange rates) are available in this environment, and estimating rates is not permitted. The only confirmed USD figure is Q1 = 2,500,000.00 USD. Please provide the tool observations (EUR→USD, GBP→USD, JPY→USD rates) or enable the conversion tools, and I will immediately compute the rounded total and average.",
+      "tool_call_sequence": [],
+      "request_role_vectors": [
+        [
+          "system",
+          "user"
+        ]
+      ],
+      "context_contract": {
+        "has_provider_response_ids": true,
+        "turn_count": 1,
+        "request_roles": [
+          [
+            "system",
+            "user"
+          ]
+        ],
+        "tools_absent_every_turn": true,
+        "required_checks": [
+          "has_provider_response_ids",
+          "tools_absent_every_turn"
+        ],
+        "passed": true
+      },
+      "usage": {
+        "prompt_tokens": 260,
+        "completion_tokens": 2569,
+        "total_tokens": 2829,
+        "cached_prompt_tokens": 0,
+        "reasoning_tokens": 2111
+      }
+    },
+    {
+      "mode": "no_tool_results",
+      "completed": true,
+      "canonical_answer_correct": false,
+      "iterations": 5,
+      "elapsed_seconds": 191.332262,
+      "tool_action_count": 7,
+      "repeated_tool_actions": 3,
+      "hit_iteration_ceiling": false,
+      "final_answer": "** The annual total and quarterly average cannot be determined in this session. All three required currency conversions (EUR→USD, GBP→USD, JPY→USD) and the aggregation were submitted to the tools, but every tool observation was hidden by the environment's context mode. Per the instruction to use only tool observations and never estimate exchange rates, I will not invent values. Once the tool outputs are visible, the answer is: **Annual Total = 2,500,000 + (Q2, Q3, Q4 converted USD values), rounded to 2 decimals; Quarterly Average = Annual Total ÷ 4, rounded to 2 decimals.** Please re-run in a mode where tool results are returned so the exact figures can be reported.",
+      "tool_call_sequence": [
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 2100000,
+            "from_currency": "EUR",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 2100000,
+            "from_currency": "EUR",
+            "to_currency": "USD",
+            "converted_amount": 2282608.7,
+            "exchange_rate": 1.087,
+            "timestamp": "2026-07-29T23:37:49.380518"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 1800000,
+            "from_currency": "GBP",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 1800000,
+            "from_currency": "GBP",
+            "to_currency": "USD",
+            "converted_amount": 2278481.01,
+            "exchange_rate": 1.2658,
+            "timestamp": "2026-07-29T23:37:49.380643"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 380000000,
+            "from_currency": "JPY",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 380000000,
+            "from_currency": "JPY",
+            "to_currency": "USD",
+            "converted_amount": 2541806.02,
+            "exchange_rate": 0.0067,
+            "timestamp": "2026-07-29T23:37:49.380737"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 2100000,
+            "from_currency": "EUR",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 2100000,
+            "from_currency": "EUR",
+            "to_currency": "USD",
+            "converted_amount": 2282608.7,
+            "exchange_rate": 1.087,
+            "timestamp": "2026-07-29T23:38:04.420940"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 1800000,
+            "from_currency": "GBP",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 1800000,
+            "from_currency": "GBP",
+            "to_currency": "USD",
+            "converted_amount": 2278481.01,
+            "exchange_rate": 1.2658,
+            "timestamp": "2026-07-29T23:38:32.509730"
+          }
+        },
+        {
+          "tool_name": "convert_currency",
+          "arguments": {
+            "amount": 380000000,
+            "from_currency": "JPY",
+            "to_currency": "USD"
+          },
+          "result": {
+            "original_amount": 380000000,
+            "from_currency": "JPY",
+            "to_currency": "USD",
+            "converted_amount": 2541806.02,
+            "exchange_rate": 0.0067,
+            "timestamp": "2026-07-29T23:38:32.509868"
+          }
+        },
+        {
+          "tool_name": "calculate",
+          "arguments": {
+            "expression": "2500000 + 0"
+          },
+          "result": {
+            "expression": "2500000 + 0",
+            "result": 2500000,
+            "type": "int"
+          }
+        }
+      ],
+      "request_role_vectors": [
+        [
+          "system",
+          "user"
+        ],
+        [
+          "system",
+          "user",
+          "assistant",
+          "tool",
+          "tool",
+          "tool"
+        ],
+        [
+          "system",
+          "user",
+          "assistant",
+          "tool",
+          "tool",
+          "tool",
+          "assistant",
+          "tool"
+        ],
+        [
+          "system",
+          "user",
+          "assistant",
+          "tool",
+          "tool",
+          "tool",
+          "assistant",
+          "tool",
+          "assistant",
+          "tool",
+          "tool"
+        ],
+        [
+          "system",
+          "user",
+          "assistant",
+          "tool",
+          "tool",
+          "tool",
+          "assistant",
+          "tool",
+          "assistant",
+          "tool",
+          "tool",
+          "assistant",
+          "tool"
+        ]
+      ],
+      "context_contract": {
+        "has_provider_response_ids": true,
+        "turn_count": 5,
+        "request_roles": [
+          [
+            "system",
+            "user"
+          ],
+          [
+            "system",
+            "user",
+            "assistant",
+            "tool",
+            "tool",
+            "tool"
+          ],
+          [
+            "system",
+            "user",
+            "assistant",
+            "tool",
+            "tool",
+            "tool",
+            "assistant",
+            "tool"
+          ],
+          [
+            "system",
+            "user",
+            "assistant",
+            "tool",
+            "tool",
+            "tool",
+            "assistant",
+            "tool",
+            "assistant",
+            "tool",
+            "tool"
+          ],
+          [
+            "system",
+            "user",
+            "assistant",
+            "tool",
+            "tool",
+            "tool",
+            "assistant",
+            "tool",
+            "assistant",
+            "tool",
+            "tool",
+            "assistant",
+            "tool"
+          ]
+        ],
+        "tool_calls_retained": true,
+        "tool_results_hidden": true,
+        "required_checks": [
+          "has_provider_response_ids",
+          "tool_calls_retained",
+          "tool_results_hidden"
+        ],
+        "passed": true
+      },
+      "usage": {
+        "prompt_tokens": 9580,
+        "completion_tokens": 5193,
+        "total_tokens": 14773,
+        "cached_prompt_tokens": 5632,
+        "reasoning_tokens": 4062
+      }
+    }
+  ],
+  "analysis": {
+    "exact_five_arms_present": true,
+    "all_context_contracts_passed": true,
+    "direct_real_api_evidence": true,
+    "experiment_execution_accepted": true,
+    "manuscript_behavior_claims": {
+      "full_baseline_correct": true,
+      "without_tool_definitions_no_tool_action": true,
+      "without_tool_results_repeated_action": true,
+      "without_history_repeated_action": true,
+      "without_reasoning_degraded": false,
+      "all_manuscript_behavior_claims_observed": false
+    },
+    "usage": {
+      "prompt_tokens": 20599,
+      "completion_tokens": 11271,
+      "total_tokens": 31870,
+      "cached_prompt_tokens": 11776,
+      "reasoning_tokens": 7231
+    }
+  }
+}
