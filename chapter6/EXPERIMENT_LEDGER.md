@@ -1,23 +1,64 @@
-# Chapter 6 experiment coverage ledger
+# Chapter 6 experiment ledger
 
-This ledger separates runnable code, pinned external sources, and direct
-acceptance evidence. A repository checkout, smoke test, or mechanism demo is
-never counted as completion of a broader manuscript experiment.
+Records for the two experiments that moved here from chapter 4 when chapter 6 (“Interaction”) was split
+out, plus the native-asynchronous-model experiment. Same convention as the chapter 4 ledger: `official_complete` is true only when every gate named by
+the manuscript has substantive real evidence.
 
-| Experiment | Manuscript acceptance scope | Current evidence | Audit status |
-| --- | --- | --- | --- |
-| 6-1 | Run τ²-bench, inspect multi-turn failures, and compare the dual-control telecom design with historical τ-bench | [`exp6-1-openrouter-gpt41mini-telecom-20260802-v1`](tau2-bench-eval/validation/runs/exp6-1-openrouter-gpt41mini-telecom-20260802-v1/manifest.json) retains the raw five-task telecom trajectory from pinned upstream `8d005b0…`, 4/5 Pass@1, exact costs, and a wrong-line failure analysis. Upstream format and trial-count checks pass; full-task coverage fails as expected because the manuscript command deliberately samples five tasks rather than a complete leaderboard submission. Historical τ-bench remains pinned at `59a200c…` for the design comparison. | **Complete saved bounded campaign** |
-| 6-2 | Personally complete simple/medium/hard tasks from GAIA, AndroidWorld, SWE-bench Verified, τ²-bench, Terminal-Bench, and OSWorld-Verified, retaining trajectories and official verification | [`experiment-6-2-human-benchmark/results.json`](experiment-6-2-human-benchmark/results.json) binds the preregistered 18/18 Codex-as-human cases to their per-benchmark trajectories and first official results: 13 passed, 5 failed, 0 unscored. The [report](experiment-6-2-human-benchmark/README.md) explains every task, operator trajectory, score, failure, and AndroidWorld/τ² compatibility boundary. | **Complete saved bounded campaign** |
-| 6-3 | Four-grade precision/recall/reasoning/proactivity rubric, examples/boundaries, hallucination veto | [`user-memory-system-evaluation/results/full_6_3_structured_rubric_evidence.json`](user-memory-system-evaluation/results/full_6_3_structured_rubric_evidence.json): 60 cases, 180/180 structured judgments, full scope, complete. | **Complete** |
-| 6-4 | Run Advanced JSON Cards, RAG, and hybrid over the same 60 cases; compare quality, steps, tools, latency, cost, and failure boundaries | [`user-memory-system-evaluation/results/full_6_4_60_cases_costed.json`](user-memory-system-evaluation/results/full_6_4_60_cases_costed.json): 180/180 real trajectories, zero errors, complete pricing coverage and failure analysis. | **Complete** |
-| 6-5 | Supply known user memories and trajectory prefixes; evaluate scoped use, current-instruction override, safe clarification, and forbidden next actions across JSON/Markdown/Python-like encodings | [`user-memory-policy-eval/results/manifest.json`](user-memory-policy-eval/results/manifest.json) binds 33/33 real OpenRouter cells (11 bad cases × 3 encodings), zero API errors, and the content-hashed report [`policy_prefix_live.json`](user-memory-policy-eval/results/policy_prefix_live.json): 6/11 passed for each encoding. | **Complete saved campaign** |
-| 6-6 | Multiple TTS providers/configurations × diverse corpus; direct-audio judge scores accuracy, naturalness, emotion, and voice consistency against reference audio | [`mistral_multimodal_20260730`](tts-quality-eval/validation/mistral_multimodal_20260730/manifest.json) retains 8/8 content-hashed OpenAI/Fish MP3 cells over four challenge categories, the fixed reference hash, exact four-dimension Voxtral judgments, and a recomputed complete gate. Earlier Google/OpenRouter/account failures remain as historical negative evidence. | **Complete saved campaign** |
-| 6-7 | Online Elo from real Arena votes, Bradley-Terry comparison, win matrix, official-ranking comparison, and historical animation | [`exp6-6-arena-20260731-v1`](elo-leaderboard/validation/runs/exp6-6-arena-20260731-v1/manifest.json) binds the 2.0 GB public snapshot by SHA-256 and processes all 1,799,991 source rows (1,670,250 accepted blind votes, 129 models). Chronological K=4 Elo and deterministic-bootstrap Bradley-Terry rankings have Spearman 0.787 / Kendall 0.606 agreement and 12/20 top-model overlap; empirical/predicted matrices, 17 monthly snapshots, three plots, and the D3 animation are content-hashed and independently revalidated. | **Complete saved campaign** |
-| 6-8 | Hold a neutral coding harness fixed while swapping GPT/Claude models; repeat localized, cross-cutting, and contract-sensitive tasks; measure pre-edit exploration, first-patch acceptance, rework, final tests, latency, files, and tokens | [`model-action-threshold/results/exp6-7-action-threshold-20260731-v1/manifest.json`](model-action-threshold/results/exp6-7-action-threshold-20260731-v1/manifest.json) binds 18/18 real OpenRouter cells (2 models × 3 tasks × 3 trials), zero API errors, full trajectories, and independently passing artifact hashes. Both models pass all final tests; GPT-5.6-sol averages 6.89 pre-edit tool calls / 4.67 files versus Claude Sonnet 5 at 4.56 / 3.56. | **Complete saved campaign** |
-| 6-9 | End-to-end multi-turn cost decomposition and measured KV-cache/context-compression A/B | `agent-cost-analysis/sample_trace.json` retains the real four-arm, eight-turn token/cache/latency observations; README reports per-step, percentile, component, and 2×2 results. | **Complete saved campaign** |
-| 6-10 | Multi-provider 8K/32K/128K × 512/2048 workload at N≥100, p50/p95/p99, thinking, pricing, same-model provider pair, rate ramp, Agent trace, and 168-hour hourly availability | Campaign and strict analyzer implemented. [`model-benchmark/results/manifest.json`](model-benchmark/results/manifest.json) reports only 29 smoke/readiness observations, no standard N=100 cells, no rate ramp/Agent-cost phase, and no 168-hour campaign. | **Incomplete—long-running/costly campaign** |
-| 6-11 | Full 4 embeddings × 3 rerankers × 2 main models × 60 cases with retrieval/task metrics and interaction analysis | [`user-memory-system-evaluation/results/full_6_11_60_case_matrix.json`](user-memory-system-evaluation/results/full_6_11_60_case_matrix.json): 60 cases × 24 cells = 1,440/1,440 real trajectories, zero error records, zero unpriced usage, complete retrieval/task metrics and factorial interaction analysis, top-level and completion status `complete`; independently rechecked by `user-memory-system-evaluation/validation/verify_full_matrix_20260731.py` (ALL CHECKS PASSED). Executed under documented backend substitutions (BGE-M3 and OpenAI embeddings via OpenRouter as identical models, Qwen3-Embedding-8B substituting the endpoint-gated Doubao embedding, Doubao-LLM reranker substituting the unreachable BGE cross-encoder); see [`user-memory-system-evaluation/results/full_matrix_backend_readiness_20260731.json`](user-memory-system-evaluation/results/full_matrix_backend_readiness_20260731.json) and `candidate_backend_probes_20260731.json`. | **Complete saved campaign** |
-| 6-12 | Diagnose AndroidWorld, test layered hypotheses, make cost-benefit decision, rerun full suite, and iterate | [`android-world/validation/candidate_h5c_api33_local_qwen_20260804/evidence.json`](android-world/validation/candidate_h5c_api33_local_qwen_20260804/evidence.json) retains all 580/580 unique episodes (116 tasks × five trials), including evaluator failures, with zero runtime errors. Strict T3A success is 26/580 (4.4828%); mean evaluator reward is 0.133621, comprising 77 full-reward states plus one `0.5` partial reward. The five-shard run used the completed official setup and all 24/24 required apps on Pixel 6/API-33, with local Qwen2.5-7B revision `a09a35458c702b33eeacc393d103063234e8bc28` via vLLM 0.19.0 on an RTX PRO 6000 Blackwell 96 GB. Execution and evidence are complete, but deployment is not approved; because the candidate Qwen model differs from the paired-source Doubao model, this evidence supports neither a same-model uplift nor a noninferiority claim. | **Complete saved campaign—deployment not approved** |
-| 6-13 | Real OpenVLA + RoboTwin2 `move_can_pot` evaluation with three RGB views, 14-D proprio/action, IID/OOD seeds, timing, failures, and action-chunk ablation | [`exp6-12-localgpu-20260803-v1`](openvla-robotwin2-eval/validation/runs/exp6-12-localgpu-20260803-v1/manifest.json) binds two real single-GPU `val_only` arms of 128 IID + 128 OOD episodes each, 512 rollout-video hashes, all process/config/checkpoint/source identities, and 486 evidence-backed timeout classifications. Chunk 1 scored 0/256; chunk 25 scored 26/256 (13/128 in both IID and OOD), a paired +10.15625 pp result. The strict analyzer and retained-package verifier both pass. | **Complete saved campaign; low absolute success retained** |
+| Experiment | Canonical run | Status | `official_complete` | Manifest SHA-256 |
+| --- | --- | --- | --- | --- |
+| 6-1 | `agent-with-event-trigger/validation/experiment_6_1/credential_probe_20260730T064500Z` | blocked | false | `3f689dfee915503f61ca30e9b590e24c8950496ca90fbf365def83805e877d0a` (stale, see note) |
+| 6-2 | `async-agent/validation/experiment_6_2/real_subprocess_20260730T052500Z` | passed | true | `fff6b43a2e3a0b706fdd68bca289119f726d3f827f3f4d837e97321f7d48a825` |
+| 6-3 | `astra-async-steering/validation/runs/exp6-14-20260905-formal` | passed | true | `bfece1666a63131e44c911908f4b0a07e6afffb719e8463b7507840d7d998c9e` |
 
-External source identities and commands are maintained in [README.md](README.md).
+> **6-1's recorded hash no longer verifies.** The manifest's `experiment` field was relabelled 4-5 → 6-1
+> during the chapter-6 split, which changed the file, but neither this value nor the one in
+> `agent-with-event-trigger/validation/experiment_6_1/latest.json` was updated. The file now hashes to
+> `5b8befd016806b719bec1eca4ac3caa12067308b65cdee19e8ef358bd8f864c5`. It is left as-is pending a
+> re-run or an explicitly documented recomputation, rather than being silently overwritten.
+
+## Experiment 6-1 — event-driven mailbox agent
+
+Manuscript gates: three real inbound test-mailbox events processed FIFO: meeting/calendar conflict plus draft, complaint extraction plus high-priority notification, and marketing archive plus provider verification.
+
+- The campaign fetched and hashed all eight official Unipile Email/Calendar schema documents and made credential-redacted live API probes.
+- Blocked before mailbox mutation: the configured Unipile credential returns 401 with both documented `X-API-KEY` and diagnostic Bearer authentication. Therefore zero local/synthetic mail objects were substituted and no three-email success is claimed.
+
+## Experiment 6-2 — interruptible asynchronous agent
+
+All four exact manuscript scenarios passed with real OS subprocesses: a 3–5
+second command remained non-blocking while the time question was answered;
+queued instructions were appended once and produced a Japanese HTML artifact;
+an interrupt terminated the real child process and the runtime recovered; and
+the 3%/2%/1% parallel jobs triggered exactly one status query after the fast
+job, preserved the >50% job, cancelled only the <=50% job, and produced a
+hashed integrated report. The canonical summary is
+`async-agent/validation/experiment_6_2/real_subprocess_20260730T052500Z/summary.json`.
+
+## Experiment 6-3 — native asynchronous tools and mid-turn steering
+
+The Astra experiment follows the event queue (6-1) and the compatibility runtime
+(6-2) in manuscript order. Its five groups, each repeated three times, have
+retained wire events and replayable judgments; the three legacy-model cases
+require an explicit capability rejection. See the [companion README](astra-async-steering/README.md)
+for protocol details, measurements, and limits.
+
+## Current numbering and archived evidence
+
+正文按阅读顺序编号。项目名称用于定位代码，运行目录及证据内部标识用于定位已经发生的实验；重新编号不改写既有记录、源码快照或哈希。以下“归档编号”只用于查阅历史记录，不是当前正文的编号。各项目 README 使用当前编号，既有运行器与验证器可继续使用原有证据标识。
+
+| 当前正文 | 项目与主题 | 归档编号 |
+| --- | --- | --- |
+| 6-1 | [邮件事件](agent-with-event-trigger/) | 6-1 |
+| 6-2 | [运行时异步与打断](async-agent/) | 6-2 |
+| 6-3 | [模型原生异步与中途引导](astra-async-steering/) | 6-14 |
+| 6-4 | [传统语音 Agent](live-audio/) | 6-3 |
+| 6-5 | [流式语音感知](streaming-speech/) | 6-4 |
+| 6-6 | [端到端全模态语音](end-to-end-speech/) | 6-5 |
+| 6-7 | [控制标记 TTS](controllable-tts/) | 6-6 |
+| 6-8 | [Anthropic Computer Use](claude-computer-use-native/) | 6-7 |
+| 6-9 | [browser-use 开放模型](computer-use-open-model/) | 6-8 |
+| 6-10 | [XLeRobot 真机遥操作](xlerobot-teleoperation/) | 6-9 |
+| 6-11 | [模拟控制上限](xlerobot-teleoperation/) | 6-10 |
+| 6-12 | [XLeRobot 自主操作](gemini-xlerobot-navigation/) | 6-11 |
+| 6-13 | [模拟闭环比较](gemini-xlerobot-navigation/) | 6-12 |
+| 6-14 | [RGB 跨环境测试](rgb-sim2real-grasping/) | 6-13 |

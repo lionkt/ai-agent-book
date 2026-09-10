@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Live three-paradigm comparison for Chapter 4 Experiment 4-2.
+"""Live three-paradigm comparison for Chapter 4 Experiment 4-3.
 
 The PNG chart and the PDF page containing that chart are each submitted to the
 same two questions through native vision, local text extraction followed by a
@@ -225,7 +225,10 @@ def judge_answers(recorder: CheckpointRecorder, model: str, rows: list[dict[str,
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ],
     )
-    return json.loads(response.choices[0].message.content)["items"]
+    try:
+        return json.loads(response.choices[0].message.content)["items"]
+    except json.JSONDecodeError:
+        return []
 
 
 def tool_version(command: list[str]) -> str:
@@ -234,7 +237,7 @@ def tool_version(command: list[str]) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Experiment 4-2 live multimodal campaign")
+    parser = argparse.ArgumentParser(description="Experiment 4-3 live multimodal campaign")
     parser.add_argument("--model", default=os.getenv("ARK_MODEL", "doubao-seed-1-6-250615"))
     parser.add_argument("--judge-model", default=os.getenv("MULTIMODAL_JUDGE_MODEL", "moonshot-v1-8k"))
     args = parser.parse_args()
@@ -383,7 +386,7 @@ def main() -> int:
         }
         manifest = write_campaign_evidence(
             PROJECT_DIR,
-            "4-2",
+            "4-3",
             evidence,
             receipts=ark.calls + judge.calls,
             input_paths=[__file__, PROJECT_DIR / "create_sample.py", chart, pdf],

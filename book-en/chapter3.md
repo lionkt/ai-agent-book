@@ -14,13 +14,11 @@ Continuing the context engineering approach from Chapter 2, this chapter extends
 
 ## User Memory System
 
-A user memory system is indispensable for building an AI Agent that offers truly personalized, continuous service. Memory is not a transcript of everything a user says. We don't remember the raw content of every conversation with a friend either; through repeated interaction we gradually form a vivid mental model of them—their hobbies, habits, and values—and that model lets us understand and even predict what they need.
+To offer personalized service across sessions, an Agent needs a layer of persistent user memory. It does not store every utterance; instead it uses an extra LLM call to extract, compress, and vet the facts that will be useful later—unlike in-context learning, which only takes effect within the current window.
 
-At its core, a user memory system is an active, continuous learning process aimed at building a concise, effective predictive model of the user. It uses additional compute—dedicated LLM calls that analyze, summarize, and structure—to explicitly extract and compress the key information scattered through long conversation histories. The contrast with in-context learning is sharp: user memory is persistent and reviewable; in-context learning is temporary and vanishes when the session ends.
+A concrete example makes the process clear. Suppose a user and an Agent have the following exchange:
 
-Let's understand this process with a concrete example. Suppose a user and an Agent have the following conversation:
-
-```
+```text
 User: Help me book a flight to Tokyo next Friday. I prefer window seats
       and I'm vegetarian, so I'll need a special meal.
 Agent: I'll search for flights to Tokyo for next Friday...
@@ -30,9 +28,9 @@ Agent: Here are your options. Based on your preference, I've filtered for
 User: Yes, and use my United MileagePlus number 12345678.
 ```
 
-After this conversation ends, the Agent framework calls a dedicated LLM to analyze the dialogue and extract information worth remembering long-term:
+Once the conversation ends, the Agent framework makes one dedicated LLM call to analyze it and extract what is worth remembering long term:
 
-```
+```text
 Extracted memories:
 - User prefers window seats (preference)
 - User is vegetarian, needs special meals on flights (dietary restriction)
@@ -40,17 +38,11 @@ Extracted memories:
 - User has travel plans to Tokyo (recent activity)
 ```
 
-Note several key characteristics of this extraction process:
-
-**Selectivity**—the Agent won't remember transient information like "the search returned 3 options," only facts useful for the future;
-
-**Abstraction**—"I prefer window seats" is refined into a general preference, not tied to this specific flight;
-
-**Structure**—whether Markdown, JSON, or another format is used, good organization makes later retrieval easier. The next time the user books a flight, the Agent will not need to ask about seat preference or meal requirements because this information is already in memory.
+The extraction should satisfy three rules at once: **selectivity** (discard short-lived detail such as "the search returned 3 options"), **abstraction** (generalize this one "window seat" into a lasting preference), and **structure** (store facts in retrievable fields).
 
 ### Evaluating Memory Capabilities: A Three-Level Framework
 
-Before designing a memory system, first answer one question: what makes a memory system "good"? Setting the evaluation criteria up front gives us a common yardstick for every design discussed later. Several public benchmarks exist; a representative one is **LoCoMo** (Long-term Conversational Memory; Maharana et al., 2024, arXiv:2402.17753). It constructs ultra-long dialogues averaging about 300 turns across up to 35 sessions, and probes a model's memory and understanding of long-range conversation through three task families: question answering (subdivided into single-hop, multi-hop, temporal reasoning, open-domain, and adversarial questions), event summarization, and multimodal dialogue generation.
+Before designing a memory system, first answer one question: what makes a memory system "good"? Setting the evaluation criteria up front gives us a common yardstick for every design discussed later. Several public benchmarks exist; a representative one is **LoCoMo** (Long-term Conversational Memory). It constructs ultra-long dialogues averaging about 300 turns across up to 35 sessions, and probes a model's memory and understanding of long-range conversation through three task families: question answering (subdivided into single-hop, multi-hop, temporal reasoning, open-domain, and adversarial questions), event summarization, and multimodal dialogue generation.
 
 Drawing on LoCoMo and its peers, together with the practice of commercial memory products, user memory capabilities can be distilled into eight categories (the author's synthesis, not any single benchmark's original taxonomy):
 
@@ -75,7 +67,7 @@ Building on this, we designed a three-level evaluation framework more tailored t
 >
 > We built an evaluation set following the three-level framework above: 20 test cases per level, each containing a wealth of factual details. Level 1 cases typically consist of a single session; Level 2 and 3 cases consist of multiple sessions across different times and entities (approximately 50 total communication turns per case). During evaluation, the Agent under test is required to generate memories based on the first session, then modify memories based on subsequent sessions (with access only to the memory, not the original conversation history), until all sessions for that case are processed. After memory generation, the Agent is asked to answer a new user question based on the memory. An LLM-as-a-judge method (using another LLM as a judge to score answer quality) is then used to compare the answer against a reference answer, yielding a reward score for that test case.
 >
-> This evaluation set and evaluation script are included in the `user-memory` project of the companion repository (the same companion project used for Experiment 3-2 later in this chapter). Readers can view the complete definitions of test cases for each level there.
+> This evaluation set and evaluation script are included in the `user-memory` project of the companion repository. Readers can view the complete definitions of test cases for each level there.
 
 ### The Hierarchical Structure of Memory
 
@@ -89,7 +81,7 @@ The trajectory is the complete raw record of a single session, appended chronolo
 
 **User Long-Term Memory** is persistent storage across sessions and instances, typically bound to a specific user ID via key-value pairs. It stores preference settings, historical interaction summaries, and extracted facts. The Agent explicitly reads and updates long-term memory through specific tool calls, enabling cross-session personalization and continuity.
 
-Additionally, some Agents support **Business State**—high-level state abstractions defined by developers, representing the logical stage of a task (e.g., "needs clarification," "processing request," "awaiting payment," "request completed"). This type of state abstraction is particularly important in event-driven Agent architectures (Chapter 4 will discuss event-driven architecture design).
+Additionally, some Agents support **Business State**—high-level state abstractions defined by developers, representing the logical stage of a task (e.g., "needs clarification," "processing request," "awaiting payment," "request completed"). This type of state abstraction is particularly important in event-driven Agent architectures (Chapter 6 will discuss event-driven architecture design).
 
 This chapter focuses on the two core levels: trajectory and user long-term memory. The layered design ensures the Agent can efficiently handle current tasks (relying on trajectory) while possessing long-term personalization capabilities (relying on long-term memory).
 
@@ -121,57 +113,57 @@ The practical selection criterion is: use Advanced JSON Cards for **critical, lo
 
 ### Advanced Knowledge Representation: Executable Code
 
-The four formats discussed above, whether simple or complex, are fundamentally **text**—meaning that the "storage" and "use" of memory remain two separate steps: first retrieve the relevant text, then feed it to an error-prone LLM to read and compute. Text-based memory excels at recalling individual facts but struggles with aggregating statistics across many records, detecting contradictory facts, or enforcing logical rules, because all these operations rely on the LLM's "mental arithmetic." User as Code[^uac] proposes a solution: shift the representation medium from text to **executable code**. It treats the Agent's model of the user as a **living software engineering project**—using typed Python objects to store user state and ordinary Python functions to encode constraint rules, so that "representing the user" and "reasoning about the user" happen in the same medium that can be executed by an interpreter.
+The four formats above are fundamentally text: good at recalling a single fact, but leaving aggregation, contradiction detection, and constraint enforcement to the LLM's "mental arithmetic." User as Code[^uac] turns user state into typed, executable objects and writes the rules as ordinary functions, so that "representation" and "reasoning" share one verifiable medium.
 
-It splits memory updates into two phases[^uac]: the **memory phase** (after each session, the LLM extracts facts from the conversation one by one as strings, appending them to an append-only fact log) and the **structuring phase** (periodically, the LLM regenerates the entire typed Python representation from the complete fact log—organizing facts into dataclasses, using `date()` for dates, typed lists for collections, and `notes: list[str]` for miscellaneous items that are hard to type). This is the classic "write-ahead log + periodic checkpoint" design from databases, applied to LLM memory for the first time: the append-only log ensures no facts are lost, and the periodic checkpoint compresses them into a clean, queryable structure. (This periodic reconstruction process is consistent with the "memory compression and organization mechanism" discussed later in this chapter, except the output is code rather than text.)
+It borrows the write-ahead log plus checkpoint mechanism: after a session ends, facts are first appended to an append-only log, and the typed state is periodically rebuilt from the complete log. This preserves the raw evidence while yielding a queryable, executable derived state.
 
-Below is a simplified example. The structuring phase stores the user's passport and trips as typed state:
+Below is a simplified state fragment showing how typed state and rules fit together:
 
 ```python
-from datetime import date
+state = {
+    passport: PassportInfo(
+        number = "AB1234567",
+        country = "US",
+        expiry_date = date(2025, 2, 18),
+    ),
+    trips: [
+        Trip(destination = "Tokyo", departure_date = date(2025, 1, 15),
+             is_international = true),
+        ...
+    ],
+}
+```
 
-passport = PassportInfo(
-    number="AB1234567", country="US",
-    expiry_date=date(2025, 2, 18),
+Typed state hands operations that once required the LLM to "read it through and do the arithmetic in its head" over to deterministic functions. **Statistical aggregation**, for example, can be written like this:
+
+```python
+count(
+    trip for trip in state.trips
+    if trip.is_international and year(trip.departure_date) == 2025
 )
-trips = [
-    Trip(destination="Tokyo", departure_date=date(2025, 1, 15),
-         is_international=True),
-    # ... remaining trips
-]
+# => 2
 ```
 
-With typed state, three tasks that previously required the LLM to "read the text and do mental arithmetic" now become deterministic code:
-
-First, **statistical aggregation**. "How many times did I go abroad in 2025?"—with text memory, you'd need to recall all trips and count them one by one, and errors become more likely as the number of records grows; with User as Code, it is a single expression, achieving nearly 100% accuracy[^uac]:
-
-```python
->>> sum(1 for t in trips if t.is_international and t.departure_date.year == 2025)
-2
-```
-
-Second, **conflict detection**. By placing "current medications" and "allergy history" side by side, a single function can cross-reference them by drug class, uncovering contradictions scattered across different conversations that would be nearly impossible to automatically associate in text form:
+**Conflict detection** can cross-reference current medications against allergy history:
 
 ```python
 def check_drug_allergy(profile):
-    for med in profile.current_medications:
+    for medication in profile.current_medications:
         for allergy in profile.allergies:
-            if med.drug_class == allergy.drug_class:
-                yield (f"Medication conflict: {med.name} belongs to {med.drug_class} class, "
-                       f"but the patient is severely allergic to {allergy.allergen}")
+            if medication.drug_class == allergy.drug_class:
+                emit_conflict(medication, allergy)
 ```
 
-Third, **constraint enforcement**. The Agent can codify such check functions and trigger them automatically every time the state is updated—without the user needing to speak or the Agent needing to retrieve anything. For example, a passport validity constraint: alert if the passport expires less than 180 days after the departure date of an international trip.
+**Constraint enforcement** checks passport validity automatically whenever the state is updated, without waiting for the user to ask again:
 
 ```python
 def check():
-    for trip in trips:
+    for trip in state.trips:
         if trip.is_international:
-            days = (passport.expiry_date - trip.departure_date).days
+            days = date_difference(state.passport.expiry_date,
+                                   trip.departure_date)
             if days < 180:
-                yield (f"Passport expires on {passport.expiry_date}, only {days} days "
-                       f"between the {trip.destination} departure and passport expiry. "
-                       f"Please renew as soon as possible.")
+                alert("passport expires too soon", trip, days)
 ```
 
 [^uac]: The complete design and evaluation of building user memory as an executable code project can be found in Li, Bojie. *User as Code: Executable Memory for Personalized Agents.* arXiv:2606.16707, 2026.
@@ -210,7 +202,7 @@ The storage formats and memory types discussed above must eventually be implemen
 
 **The 2026 v3 algorithm—append-only writes, hybrid retrieval.** The current pipeline uses one LLM call to extract facts and performs only **ADD** operations; "lives in Beijing" and a later "moved to Shanghai" coexist as separately dated facts. At query time it fuses semantic similarity, BM25 keywords, and entity matching with temporal ranking; agent-confirmed actions are also first-class facts. This avoids losing history through an incorrect UPDATE or DELETE, reduces LLM calls, and uses complementary retrieval signals to surface the current fact. Mem0 reports LoCoMo improving from 71.4 to 92.5 (+21.1) and LongMemEval from 67.8 to 94.4 (+26.6). Current OSS removed the external graph store and `relations` output; entity links now serve only as internal retrieval boosts, so Mem0-g is a historical design. See the [Mem0 OSS v2-to-v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3).
 
-**Memobase: User Profiles Plus Event Memory.** Memobase (open-source project memodb-io/memobase) has a different design philosophy from Mem0: rather than building a general-purpose memory pipeline, it focuses on the specific form of "user profiles." It organizes user memory into two parts. **User Profile** is a set of configurable slots organized by topic and subtopic (e.g., basic_info→name, interest→gaming preferences, work→job title), storing stable user attributes extracted from conversations. Developers can precisely control the scope and granularity of the profile. **Event Memory** records user experiences along a timeline, used to answer time-related questions like "When did we last discuss the budget?" On the engineering side, Memobase uses buffered batch processing: conversations accumulate until a size or time threshold triggers one memory-extraction pass. This amortizes the cost of LLM calls, and since the query side reads only the already-organized profiles and events, latency stays low.
+**Memobase: User Profiles Plus Event Memory.** Memobase (open-source project memodb-io/memobase) has a different design philosophy from Mem0: rather than building a general-purpose memory pipeline, it focuses on the specific form of "user profiles." It organizes user memory into two parts. **User Profile** is a set of configurable slots organized by topic and subtopic (e.g., basic_info→name, interest→interests, work→job title), storing stable user attributes extracted from conversations. Developers can precisely control the scope and granularity of the profile. **Event Memory** records user experiences along a timeline, used to answer time-related questions like "When did we last discuss the budget?" On the engineering side, Memobase uses buffered batch processing: conversations accumulate until a size or time threshold triggers one memory-extraction pass. This amortizes the cost of LLM calls, and since the query side reads only the already-organized profiles and events, latency stays low.
 
 Each framework covers only part of the memory design space: Mem0's factual entries are close to semantic memory, while Memobase's profiles approximate semantic memory and its event memory approximates episodic memory. Widening the lens, we can sketch a **reference architecture for multi-type memory collaboration** (Figure 3-4) built on the cognitive science categories introduced earlier—a generalization of the design space rather than any particular project's implementation:
 
@@ -227,15 +219,13 @@ This reference architecture shows how cognitive science's memory classifications
 
 As interaction continues, a memory system faces the twin pressures of storage space and retrieval efficiency. Simply accumulating everything leads to unbounded memory growth—it consumes storage and drags down retrieval accuracy.
 
-In practice, a multi-tier compression strategy works well. The first tier filters memories by importance score. A common approach to importance scoring considers four factors: access frequency (frequently retrieved memories are more important), time decay (older memories are more likely to be forgotten), emotional intensity (memories with strong emotional markers are more likely to be retained), and information uniqueness (the importance of duplicate information decreases). Memories below a threshold are marked as compressible or deletable. For example, a memory accessed 5 times, created 3 days ago, with a strong emotional marker, and no duplicates would receive a high importance score. In contrast, a memory accessed only once, created 90 days ago, with no emotional marker, and three near-duplicates might fall below the compression threshold.
+In practice, a multi-tier compression strategy works well.
 
-The second tier performs clustering. Similar memories are grouped, and a representative summary is generated for each group (e.g., multiple weather-related conversations are compressed into "The user frequently asks about the weather, with particular concern about rain"). Original detailed memories can be archived to secondary storage.
+1. The first tier filters memories by importance score. A common approach to importance scoring considers four factors: access frequency (frequently retrieved memories are more important), time decay (older memories are more likely to be forgotten), emotional intensity (memories with strong emotional markers are more likely to be retained), and information uniqueness (the importance of duplicate information decreases). Memories below a threshold are marked as compressible or deletable. For example, a memory accessed 5 times, created 3 days ago, with a strong emotional marker, and no duplicates would receive a high importance score. In contrast, a memory accessed only once, created 90 days ago, with no emotional marker, and three near-duplicates might fall below the compression threshold.
 
-The third tier abstracts and generalizes—extracting general rules from specific episodic memories and converting them into semantic or procedural memory. For example, from multiple shopping conversations, the system might learn "Prefers cost-effective products and values user reviews."
+2. The second tier performs clustering. Similar memories are grouped, and a representative summary is generated for each group (e.g., multiple weather-related conversations are compressed into "The user frequently asks about the weather, with particular concern about rain"). Original detailed memories can be archived to secondary storage.
 
-Conflict detection uses a versioning approach—historical versions are retained while the latest version is marked. For certain information (e.g., current address), only the latest version is kept; for other information (e.g., work history), the complete history is retained.
-
-Finally, a boundary must be drawn to avoid confusion with other chapters. This section discusses organization algorithms at the memory **storage layer**—which memories to select, cluster, and abstract, and into what forms. Context compression in Chapter 2 addresses the window problem within a single session; the two mechanisms operate at different levels. This chapter is also responsible for knowledge storage, indexing, and retrieval. Chapter 8 generalizes the two-stage pattern of “append evidence online, consolidate it offline” to the evolution of Agent behavior, examining what operational evidence is sufficient to trigger persistent updates.
+3. The third tier abstracts and generalizes—extracting general rules from specific episodic memories and converting them into semantic or procedural memory. For example, from multiple shopping conversations, the system might learn "Prefers cost-effective products and values user reviews."
 
 ### Privacy Protection: Log Sanitization
 
@@ -251,33 +241,11 @@ So far we have focused on the **representation and management** of memory—what
 
 ## RAG Basics: Building an Agent's Knowledge Acquisition Pipeline
 
-The core technology for building a shared knowledge base is Retrieval-Augmented Generation (RAG). The central idea is to combine the thinking and generation capabilities of large language models with the breadth and timeliness of an external knowledge base—the model's training data has a cutoff date, while the knowledge base can be updated at any time.
+The core technology for building a shared knowledge base is Retrieval-Augmented Generation (RAG). The central idea is to combine the thinking and generation capabilities of large language models with the breadth and timeliness of an external knowledge base. The model's training data has a cutoff date, while the knowledge base can be updated at any time.
 
-A typical RAG system consists of two parts: a retriever, which finds relevant fragments from the knowledge base, and a generator (usually an LLM), which uses these fragments as context to generate an answer. Let's first get an intuitive feel for how RAG works through two examples, then delve into the technical details of the retriever.
+A typical RAG system consists of two parts: a retriever, which finds relevant fragments from the knowledge base, and a generator (usually an LLM), which uses these fragments as context to generate an answer.
 
-**Example 1: Wikipedia Knowledge Base.** A user asks, "What is quantum entanglement?" The base model's training data might not include the latest experimental results. The RAG process is as follows:
-
-```python
-# 1. User query
-query = "What is quantum entanglement? What are the latest experimental advances?"
-
-# 2. Retrieval: Find the most relevant fragments from the Wikipedia knowledge base
-results = retriever.search(query, top_k=3)
-# results = [
-# "Quantum entanglement is a quantum mechanical phenomenon where the quantum states of two particles are correlated...",
-# "The 2022 Nobel Prize in Physics was awarded to three scientists for experiments with quantum entanglement...",
-# "Bell's inequality experiments have demonstrated the non-locality of quantum entanglement..."
-# ]
-
-# 3. Generation: Use the retrieved results as context for the LLM to generate an answer
-answer = llm.generate(
-    system="Answer the user's question based on the following reference materials. If the materials are insufficient, state that clearly.",
-    context=results,   # ← Retrieved knowledge fragments injected into the context
-    question=query
-)
-```
-
-**Example 2: Company Knowledge Base.** A user asks, "I bought something and want a refund. What's the process?":
+Let's first get an intuitive feel for how RAG works through a company knowledge base example: a user asks, "I bought something and want a refund. What's the process?":
 
 ```python
 query = "Refund process"
@@ -290,9 +258,9 @@ answer = llm.generate(system="You are a customer service assistant.", context=re
 # → "You can request a full refund within 7 days of receipt. Steps: Go to 'My Orders' → Select the order → Click 'Request Refund'..."
 ```
 
-The pattern is identical in both examples: **Retrieve relevant fragments → Inject into context → LLM generates answer based on context**. The core value of RAG is enabling the LLM to use knowledge it hasn't seen during training (the latest Wikipedia content, a company's internal documents) without needing to retrain the model.
+RAG's core flow is: **Retrieve relevant fragments → Inject into context → LLM generates answer based on context**.
 
-The quality of the retriever directly determines the effectiveness of RAG—if it can't retrieve relevant fragments, even the strongest LLM has nothing to work with. This section starts with the first step of getting documents into the knowledge base—chunking—then turns to the two main retrieval approaches, dense embeddings (semantic understanding) and sparse embeddings (keyword matching), and how to combine them.
+We begin with the first step of getting documents into the knowledge base—document chunking—then turn to the two main retrieval approaches, dense embeddings and sparse embeddings, and how to combine them.
 
 ![Figure 3-5: RAG Query Flow: Retrieval, Augmentation, and Generation](images/fig3-5.svg)
 
@@ -366,11 +334,17 @@ $$\text{TF-IDF}(t, d) = \text{TF}(t, d) \times \text{IDF}(t), \qquad \text{IDF}(
 
 Here, `TF(t,d)` is the number of times term $t$ appears in document $d$, `DF(t)` is the number of documents containing it, and $N$ is the total number of documents. In the simplest formulation above, raw term frequency grows linearly and document length is not normalized: a term appearing 10 times receives twice the TF of one appearing 5 times, while longer documents can score higher simply because they contain more words.
 
-BM25 (Okapi BM25) can be viewed as a classic correction to these two limitations. It retains IDF weighting for rare terms while adding term-frequency saturation and document-length normalization:
+BM25 can be viewed as a classic correction to these two limitations. It retains IDF weighting for rare terms while adding term-frequency saturation and document-length normalization:
 
-$$\text{Score}(Q, D) = \sum_{i} \text{IDF}(q_i) \cdot \frac{\text{TF}(q_i, D)\,(k_1+1)}{\text{TF}(q_i, D) + k_1\left(1 - b + b \cdot \frac{|D|}{\text{avgdl}}\right)}$$
+$$\text{Score}(Q, D) = \sum_{i} \text{IDF}_{\text{BM25}}(q_i) \cdot \frac{\text{TF}(q_i, D)\,(k_1+1)}{\text{TF}(q_i, D) + k_1\left(1 - b + b \cdot \frac{|D|}{\text{avgdl}}\right)}$$
 
-Here, $q_i$ is a query term, $|D|$ is the document length, and $\text{avgdl}$ is the corpus's average document length. As Figure 3-8 shows, $k_1$ controls how quickly term frequency saturates, so repeated occurrences provide diminishing gains; $b$ controls the strength of length normalization, making documents of different lengths more comparable. Consequently, 10 occurrences usually contribute less than twice as much as 5, and the same term frequency receives less weight in a longer document. Specific parameter values and the arithmetic are covered in Experiment 3-5.
+Here, $q_i$ is a query term, $|D|$ is the document length, and $\text{avgdl}$ is the corpus's average document length. $\text{IDF}_{\text{BM25}}$ carries a subscript because it is not the same formula as the $\text{IDF}$ of TF-IDF above—BM25 switches to a more robust variant:
+
+$$\text{IDF}_{\text{BM25}}(t) = \ln\frac{N - \text{DF}(t) + 0.5}{\text{DF}(t) + 0.5}$$
+
+The intuition is unchanged—the rarer the term, the higher its weight—only the way it is measured. The numerator becomes the number of documents *without* the term, $N - \text{DF}(t)$, rather than the corpus size $N$, so the ratio states how many times more documents lack the term than contain it; adding 0.5 to both numerator and denominator smooths the result, keeping the formula defined at the two extremes $\text{DF}(t) = 0$ and $\text{DF}(t) = N$. The price is that a term occurring in more than half the documents ($\text{DF}(t) > N/2$) receives a negative weight, so implementations usually clamp it to a floor.
+
+As Figure 3-8 shows, $k_1$ controls how quickly term frequency saturates, so repeated occurrences provide diminishing gains; $b$ controls the strength of length normalization, making documents of different lengths more comparable. Consequently, 10 occurrences usually contribute less than twice as much as 5, and the same term frequency receives less weight in a longer document. Specific parameter values and the arithmetic are covered in Experiment 3-5.
 
 
 ![Figure 3-8: BM25 Scoring Mechanism](images/fig3-8.svg)
@@ -380,7 +354,7 @@ Here, $q_i$ is a query term, $|D|$ is the document length, and $\text{avgdl}$ is
 >
 > To lay bare the inner workings of sparse retrieval, the `sparse-embedding` project implements a BM25-based sparse vector search engine from scratch as a teaching vehicle. Its value lies not in squeezing out performance but in complete transparency. Through rich logging and visualization interfaces, we can clearly observe the entire document indexing process: text preprocessing (tokenization and removal of Chinese stop words like "的" and "了" (function words as common as "the" or "of" in English) that carry almost no retrieval value), building an inverted index, and calculating TF and IDF values. An inverted index is a reverse mapping table from words to documents—a forward index is "given a document, list the words it contains," while an inverted index does the opposite: "given a word, immediately find all documents containing it." It's like the term index at the back of a book: you look up "TCP," and it tells you pages 45, 112, and 203 mention it.
 >
-> During a query, the log details each step of the BM25 calculation. Using the query "model distillation" as an example again—the following log comes from a small sample corpus (N=10 documents) included with the project, so the number of hits is much smaller than the 100-article scenario mentioned earlier. To facilitate manual recalculation, the example fixes BM25 parameters k1=1.5, b=0.75, and average document length avgdl=250 words; IDF uses the standard form IDF=ln((N−df+0.5)/(df+0.5)), where df is the number of documents containing the word:
+> During a query, the log details each step of the BM25 calculation. Using the query "model distillation" as an example again, the following log comes from a small sample corpus (N=10 documents) included with the project. To facilitate manual recalculation, the example fixes BM25 parameters k1=1.5, b=0.75, and average document length avgdl=250 words; IDF uses the BM25 form given above, IDF=ln((N−df+0.5)/(df+0.5)), where df is the number of documents containing the word:
 >
 > ```
 > Query tokens: ["model", "distillation"]
@@ -401,25 +375,21 @@ Here, $q_i$ is a query term, $|D|$ is the document length, and $\text{avgdl}$ is
 >
 > This experiment lays bare the strengths and weaknesses of sparse retrieval: it performs excellently on queries involving technical identifiers or proper names due to exact keyword matching, but it cannot understand synonymous expressions (a query term matches only documents containing that exact word). This contrast between its strength and weakness sets up hybrid retrieval in the next section—the concrete comparisons appear there.
 
-**Learned Sparse Retrieval.** This chapter uses classic BM25 as the representative of sparse retrieval because it requires no training, is transparent and reproducible, and is best suited for explaining the principles of sparse retrieval. That said, sparse retrieval itself has entered a "learned" stage: models such as SPLADE, along with the sparse output branch of BGE-M3, use neural networks to assign weights to each term—no longer just scoring based on term frequency and document frequency like BM25, but letting the model judge "how important this word is in this text," and even assigning non-zero weights to terms that are semantically related but do not appear in the original text (term expansion). The result is still a sparse vector with most dimensions being zero, preserving lexical interpretability and exact matching while gaining some semantic generalization from the neural network. Think of it as a meeting point between the sparse and dense routes.
-
 ### Hybrid Retrieval: The Art of Having the Best of Both Worlds
 
 Both methods have blind spots: dense retrieval understands semantics but may miss keywords (searching for "HTTP-403" might return general discussions about "server error"), while sparse retrieval matches exactly but cannot understand synonyms (searching for "kitty" won't find documents that only mention "cat"). The idea behind hybrid retrieval is simple—run both engines and merge the results—but the difficulty lies in how to integrate two sets of scores with vastly different distributions into a meaningful ranking.
 
 ![Figure 3-9: Hybrid Retrieval and Reranking Pipeline](images/fig3-9.svg)
 
-A typical hybrid retrieval pipeline has three stages, each with its own job. The first is **parallel retrieval**: the system sends the query to the dense and sparse engines simultaneously, and each recalls a set of candidate documents.
+A typical hybrid retrieval pipeline has three stages, each with its own job, building on one another.
 
-The second is **result fusion**, which combines the two result sets into a unified candidate pool. The difficulty is that the scores from the two paths are not directly comparable: the similarity scores from dense retrieval (e.g., cosine similarity, theoretically ranging from −1 to 1, but normalized text embeddings in practice usually fall between 0 and 1) and the BM25 scores from sparse retrieval (which can be any value from 0 to tens) have completely different scales and distributions. Two common fusion methods are: first, normalizing the scores from each path separately and then performing a weighted sum; second, Reciprocal Rank Fusion (RRF)—completely discarding the original scores and only looking at the ranks. The combined score for each document is the sum of the smoothed reciprocals of its ranks in each result set, i.e., score = Σ 1/(k + rank), where k is a smoothing constant (often 60), used to reduce the score gap between the top-ranked positions. RRF is simple and robust, but it uses only rank information, discarding the rich relevance signal in the original scores.
+The first stage is **parallel retrieval**: the system sends the query to the dense and the sparse engine at the same time, and each returns a set of candidate documents.
+
+The second is **result fusion**, which combines the two result sets into a unified candidate pool. The difficulty is that the scores from the two paths are not directly comparable: cosine-similarity scores from dense retrieval (usually 0 to 1) and BM25 scores from sparse retrieval (which can range from 0 to tens) have completely different scales and distributions. A common fusion method is **Reciprocal Rank Fusion (RRF)**, which completely discards the original scores and looks only at ranks. The combined score for each document is the sum of the smoothed reciprocals of its ranks in each result set, i.e., score = Σ 1/(k + rank), where k is a smoothing constant (often 60), used to reduce the score gap between the top-ranked positions. RRF is simple and robust, but it uses only rank information, discarding the rich relevance signal in the original scores.
 
 The third stage—**neural reranking**—does more than compensate for the information that RRF discards: whichever fusion method precedes it, reranking earns its place by switching to a stronger matching paradigm. A cross-encoder performs deep, interactive matching between query and document, far more accurately than the retrieval stage's bi-encoder, which encodes each independently and compares them by vector arithmetic. Concretely, it scores the top N candidates (say, 50) from the fused pool one by one to produce the final ranking. Note that reranking does **not replace** fusion: fusion produces the unified candidate pool from the two result sets; reranking refines the ranking within that pool.
 
-An analogy: a recruiter skimming resumes for a first cut is the bi-encoder; an interviewer in deep conversation with each candidate is the cross-encoder. The former screens at scale on pre-extracted features; the latter lets the query and each candidate document meet "face-to-face" and be evaluated word by word. The reranker employs the "Cross-Encoder" architecture, in stark contrast to the "Bi-Encoder" used in the retrieval stage. A **Bi-Encoder** generates independent vectors for the query and document and calculates similarity through vector operations—very fast, but unable to capture deep matching relationships, suitable for initial screening from massive data. A **Cross-Encoder** **concatenates the query and candidate document into a single piece of text** and feeds it to the model, allowing the model to compare word by word and output a comprehensive relevance score[^ch3-cross-encoder]—much slower, but more accurate in relevance judgments. Commonly used reranking models like [BAAI/bge-reranker-v2-m3](https://huggingface.co/BAAI/bge-reranker-v2-m3) adopt this architecture.
-
-This "joint attention" mechanism allows the cross-encoder to capture subtle semantic associations that the bi-encoder cannot perceive, resulting in a final ranking that is far more accurate than any single retrieval method.
-
-[^ch3-cross-encoder]: In implementations of BERT-like models, the concatenated input is separated by special tokens (e.g., `[CLS] query text [SEP] document text [SEP]`, where `[CLS]` marks the start of the sequence and `[SEP]` marks the boundary). This is an underlying implementation detail and is not necessary for understanding the retrieval process.
+An analogy: a recruiter skimming resumes for a first cut is the bi-encoder; an interviewer in deep conversation with each candidate is the cross-encoder. The former screens at scale on pre-extracted features; the latter lets the query and each candidate document meet "face-to-face" and be evaluated word by word. The reranker employs the "Cross-Encoder" architecture, in stark contrast to the "Bi-Encoder" used in the retrieval stage. A **Bi-Encoder** generates independent vectors for the query and document and calculates similarity through vector operations; it is very fast but unable to capture deep matching relationships, making it suitable for initial screening from massive data. A **Cross-Encoder** **concatenates the query and candidate document into a single piece of text** and feeds it to the model, allowing the model to compare word by word and output a comprehensive relevance score. It is much slower, but more accurate in relevance judgments. Commonly used reranking models like [BAAI/bge-reranker-v2-m3](https://huggingface.co/BAAI/bge-reranker-v2-m3) adopt this architecture.
 
 **How to Measure Retrieval Quality?** Tuning a multi-stage pipeline like this requires objective metrics. The three that matter most (all computed on a test query set with annotated answers):
 
@@ -433,7 +403,7 @@ Table 3-3 Three Core Metrics for Retrieval Quality
 
 [^ch3-recall]: Strictly speaking, the "recall@k" defined in this book is actually the **hit rate** (also called success@k)—it counts a hit as long as at least one relevant document appears in the top k results. The standard academic recall@k refers to the **proportion of relevant documents retrieved** (number of relevant documents in the top k results ÷ total number of relevant documents for that query); when a query has multiple relevant documents, the two are not equal. This book adopts this simplified definition to align with the reporting conventions of Anthropic's "Contextual Retrieval" report cited later. Readers should be mindful of the exact definitions when comparing across sources.
 
-Industry reports also commonly mention "retrieval failure rate." For example, in the Anthropic data cited later in this chapter, the retrieval failure rate refers to the proportion of queries where the correct information does not appear in the top-20 retrieval results—essentially 1 − recall@20. When you encounter such numbers, pin down which metric they map to and what k is before comparing across sources.
+Industry reports also commonly mention "retrieval failure rate." For example, **retrieval failure rate** is the proportion of queries where the correct information does not appear in the top-20 retrieval results.
 
 > **Experiment 3-6 ★★: Hybrid Retrieval Pipeline: Combining Sparse, Dense, and Reranking**
 >
@@ -443,21 +413,26 @@ Industry reports also commonly mention "retrieval failure rate." For example, in
 >
 > What stands out most is how much the reranker lifts the quality of the final results. The system returns not just the reranked list but each document's original rank in the dense and sparse retrievals and how it moved after reranking. These "rank change" statistics show clearly how the neural reranker promotes highly relevant documents that a single method ranked too low. The results make one point plain: no single retrieval strategy is reliable everywhere. Combining dense, sparse, and reranking is the right way to build a production-grade RAG system.
 
-So far everything we have retrieved has been plain text. Real-world knowledge lives in far more forms than that.
-
 ## Beyond Flat Text: Knowledge Organization and Retrieval
+
+The RAG fundamentals introduced above—dense embeddings, sparse embeddings, hybrid retrieval—solve the problem of "given a text chunk, how do we quickly find the most relevant ones?" But a more basic question remains: **how should those chunks themselves be organized?** Cutting a document into flat, mutually unrelated chunks discards the hierarchy inherent in the knowledge and the connections that run across documents; faced with material as structurally complex and logically rigorous as a technical manual, a legal instrument, or an academic paper, retrieving scattered fragments is like trying to understand a novel by reading random dictionary entries. For an Agent to truly "understand" a knowledge domain, it must go beyond flat text chunks and build a structured index that reflects the hierarchy and the connections of the knowledge. This section first introduces these more advanced ways of organizing knowledge, and then—this is the crucial step—**applies them back to the user memory** discussed at the beginning of this chapter, addressing the precision problem in user-memory retrieval.
 
 Six topics follow. They do not form a strict ladder; each addresses knowledge organization and retrieval from a different angle: two **structured indexing** techniques (RAPTOR and GraphRAG), which tackle how knowledge should be organized; OpenViking's **filesystem paradigm**, a lightweight approach to knowledge management; **how knowledge should be updated**, distinguishing incremental updates that promptly absorb new evidence from periodic full-library reorganization; **Agentic RAG**, which lets the Agent choose its own retrieval strategy; **Contextual Retrieval**—not a layer above Agentic RAG but a step back to repair the most basic link, chunking, improving each chunk's own retrievability; and finally, extracting deep knowledge from **structured datasets**.
 
-Traditional RAG is powerful, but its core method—cutting documents into independent, unrelated text chunks with the standard procedure from the "Document Chunking" section—has a fundamental limitation: this flattening ignores the structure inherent in knowledge itself. For structurally complex, tightly reasoned documents—technical manuals, legal texts, academic papers—retrieving scattered fragments is like trying to understand a novel by reading random dictionary entries. For an Agent to truly "understand" a knowledge domain, we must move beyond flat text chunks and build structured indexes that reflect knowledge's inherent hierarchy and relationships.
-
 A deeper problem is that even if we build a RAG system, simply placing a large number of raw cases into the knowledge base without structure does not guarantee that the retrieval mechanism can recall all relevant information, leading the model to make incorrect judgments based on incomplete context.
 
-**Case 1: The Black Cat and White Cat Counting Problem.** In Chapter 2, we used the black cat and white cat counting example to illustrate that "attention is a soft retrieval mechanism, and statistical information needs to be pre-extracted"—even if all 100 cases are loaded into the context window, the model struggles to perform accurate counting. The same problem reappears at the knowledge base scale, compounded by several new obstacles. Suppose the knowledge base has 100 independent case documents (90 black cats, 10 white cats, each an independent text chunk), and the user asks, "What is the ratio of black cats to white cats?" First, **top-k truncation**—with a small top-k value, such as 20, most cases won't be retrieved at all. Second, **uneven retrieval scores**—even with a larger k, individual cases are described differently, their scores vary widely, and some are still missed. Most fundamentally, there is a **mismatch in cross-document aggregation**—statistical questions require "counting across all documents," while the nature of retrieval is "finding the most relevant few," creating an inherent contradiction. The model can only draw incorrect conclusions based on an incomplete sample (e.g., seeing only 15 black cats and 3 white cats). If a pre-generated summary like "Total 100 cats: 90 black cats (90%) and 10 white cats (10%)" is indexed, a single retrieval yields accurate information.
+**Case 1: The Black Cat and White Cat Counting Problem.** In Chapter 2, we used the black cat and white cat counting example to illustrate that "attention is soft retrieval"; even if all 100 cases are loaded into the context window, the model struggles to count accurately. With RAG, the problem becomes worse. Suppose the knowledge base has 100 independent case documents (90 black cats and 10 white cats, each an independent text chunk). When the user asks, "What is the ratio?", top-k (say, 20) prevents most cases from being retrieved. The model can only draw a wrong conclusion from an incomplete sample (for example, seeing 15 black cats and 3 white cats).
 
-**Case 2: Erroneous Reasoning about Xfinity Discount Rules.** Three isolated historical cases: Veteran John successfully applied for a discount, Doctor Sarah received a discount, Teacher Mike was told he was ineligible. When a nurse inquires, the retriever, due to the semantic similarity between "nurse" and "doctor," prioritizes Sarah's doctor case, and the model incorrectly infers that nurses are also eligible. The retriever fails to simultaneously recall Mike's teacher case (which shows other professions are ineligible). Worse, "nurse" has low semantic similarity to John's veteran case, so that case might rank low and be ignored, leading to an incomplete understanding of the rule. If a pre-extracted rule like "Xfinity discounts are only available to veterans and doctors; other professions are not eligible" is indexed, a single retrieval provides the complete rule regardless of the profession asked about.
+If we instead pre-generate and index a summary—"There are 100 cats: 90 black (90%) and 10 white (10%)"—one retrieval returns the exact information.
 
-Both cases point to the same conclusion: **naive RAG—dropping raw cases or documents into the knowledge base unprocessed—is nowhere near enough.** Whether stored in an external vector database and injected into the context via retrieval, or placed directly in a long context, without knowledge extraction and structured preprocessing, the model cannot use this information efficiently and reliably. The model's attention mechanism is fundamentally a similarity-based soft retrieval system, not a thinking engine that actively summarizes, generalizes, and builds knowledge hierarchies. So compute must be invested at the indexing stage to actively extract, abstract, and structure the raw knowledge—compressing "100 individual cases" into a statistical summary, distilling "three isolated cases" into an explicit rule.
+**Case 2: The Boundary Problem in Xfinity Discount Eligibility.** This time the knowledge base is a support ticket archive: a few hundred tickets, each recording one real outcome—Veteran John was approved, Doctor Sarah got the discount, Teacher Mike was told he was ineligible, and so on. Every ticket states the conclusion of one individual case; not one of them states the scope of eligibility itself. When a nurse asks "am I eligible?", several obstacles stack up:
+- First, **nearest-neighbor bias**—"nurse" is semantically closest to "doctor," so Sarah's ticket ranks first and the model duly infers that nurses qualify too; had Mike's ticket happened to rank higher, the same question would have received the opposite answer.
+- Second, **missing boundary semantics**—an obstacle that a larger k cannot fix: a statement of the form "only ..., all others do not qualify" contains a universal boundary and a negation that do not exist in any single ticket.
+- Finally, **missing completeness signals**—the model has no way to tell whether it has seen everything, so it never asks; it simply answers with confidence from the few tickets in hand.
+
+The fix again belongs at indexing time: read the entire ticket archive offline and distill a single rule card: "Xfinity discounts apply to active-duty service members and veterans, and to licensed medical professionals including nurses; other professions such as teachers do not qualify."
+
+Both cases point to the same conclusion: **naive RAG—dropping raw cases or documents into the knowledge base unprocessed—is nowhere near enough.** Whether stored in an external vector database and injected into the context via retrieval, or placed directly in a long context, without knowledge extraction and structured preprocessing, the model cannot use this information efficiently and reliably. The model's attention mechanism is fundamentally a similarity-based soft retrieval system, not a thinking engine that actively summarizes, generalizes, and builds knowledge hierarchies. So compute must be invested at the indexing stage to actively extract, abstract, and structure the raw knowledge—compressing "100 individual cases" into a statistical summary, distilling "individual cases scattered across hundreds of tickets" into an explicit rule that states its own boundary.
 
 ### Structured Indexing: From Information Retrieval to Knowledge Modeling
 
@@ -477,9 +452,8 @@ In technical document retrieval, for example, several leaf nodes about SSE instr
 
 **GraphRAG** models document knowledge as a knowledge graph composed of entities and relationships. A knowledge graph builds an information network using entity-relationship-entity triples. A triple expresses a piece of knowledge in the form "subject-predicate-object," e.g., (Beijing, is the capital of, China), (Zhang San, works at, Tencent). Combine enough triples and you get a web of knowledge. The core advantages of a knowledge graph show up in two places.
 
-**Multi-hop relational reasoning** is the most irreplaceable capability of a knowledge graph. When a user asks "What is the address of my doctor's hospital?", the system needs to sequentially resolve the relationship chain "user → doctor → hospital → address." In a flat memory store, such multi-hop queries either require multiple independent retrievals followed by LLM stitching (inefficient and prone to broken chains) or are simply inexpressible. The graph structure of a knowledge graph naturally supports traversing along relationship edges, making such queries both efficient and reliable.
-
-**Entity Disambiguation** is another strength of knowledge graphs. Note that this differs from the "polysemy" discussed earlier in the dense embedding section: determining whether "bank" refers to a riverbank or a financial institution in a sentence is a task of Word Sense Disambiguation, solvable with context-aware embeddings. In contrast, distinguishing between two real-world individuals both named "Dr. Zhang" is entity disambiguation—it requires maintaining knowledge about the entities themselves. Remember the "Advanced JSON Cards" in the "Four Storage Formats" section, which used manually designed fields like `person` and `relationship` to differentiate multiple "Dr. Zhang" contacts for a user? In a knowledge graph, this disambiguation becomes a native capability of the graph structure: (Dr. Zhang-A, Department, Dentistry) and (Dr. Zhang-B, Department, Cardiology) are distinct nodes in the graph, connected to different people and institutions via their respective relationship edges. The disambiguation process requires no additional reasoning.
+1. **Multi-hop relational reasoning.** This is the most irreplaceable capability of a knowledge graph. When a user asks "What is the address of my doctor's hospital?", the system needs to sequentially resolve the relationship chain "user → doctor → hospital → address." In a flat memory store, such multi-hop queries either require multiple independent retrievals followed by LLM stitching (inefficient and prone to broken chains) or are simply inexpressible. The graph structure of a knowledge graph naturally supports traversing along relationship edges, making such queries both efficient and reliable.
+2. **Entity Disambiguation.** This is another strength of knowledge graphs. Note that this differs from the "polysemy" discussed earlier in the dense embedding section: determining whether "bank" refers to a riverbank or a financial institution in a sentence is a task of Word Sense Disambiguation, solvable with context-aware embeddings. In contrast, distinguishing between two real-world individuals both named "Dr. Zhang" is entity disambiguation—it requires maintaining knowledge about the entities themselves. Remember the "Advanced JSON Cards" in the "Four Storage Formats" section, which used manually designed fields like `person` and `relationship` to differentiate multiple "Dr. Zhang" contacts for a user? In a knowledge graph, this disambiguation becomes a native capability of the graph structure: (Dr. Zhang-A, Department, Dentistry) and (Dr. Zhang-B, Department, Cardiology) are distinct nodes in the graph, connected to different people and institutions via their respective relationship edges. The disambiguation process requires no additional reasoning.
 
 GraphRAG first uses an LLM to extract key entities (people, places, concepts, terms) from text, and then extracts the various relationships between these entities. Based on the graph, it uses community detection algorithms to find semantically tight clusters of entities and generate summaries, automatically discovering natural thematic groupings within the knowledge and forming a mind map. This networked knowledge representation is particularly adept at answering questions involving complex relationships among multiple entities.
 
@@ -501,7 +475,7 @@ Therefore, the recommended strategy in practice is **a layered, complementary de
 
 RAPTOR and GraphRAG represent the academic community's explorations of knowledge organization; [OpenViking](https://github.com/volcengine/OpenViking), open-sourced by ByteDance's Volcano Engine, proposes a third philosophy: the **filesystem paradigm**. It treats context neither as flat vector fragments nor as graph nodes. Instead, it maps all context—memories, resources, skills—into directories and files within a virtual filesystem, each with a unique URI:
 
-```
+```text
 viking://
 ├── resources/          # External knowledge: documents, codebases, web pages
 ├── user/memories/      # User memories: preferences, habits
@@ -514,9 +488,11 @@ Here, `viking://` is a **virtual URI**—formally similar to `http://` or `file:
 
 The core design is **L0/L1/L2 three-layer context on-demand loading**. When a resource is written, the system automatically distills the original content into three abstraction levels: **L0 (Summary)** is a one-sentence overview of about 100 tokens, used for quickly judging directory relevance; **L1 (Overview)** contains core information and usage scenarios in about 2,000 tokens, for Agent planning and decision-making; **L2 (Full Text)** is the complete original content, loaded on demand only when deep analysis is needed. Each directory automatically generates `.abstract` (L0) and `.overview` (L1) files, forming a hierarchical summary structure from root to leaf. If L0 is deemed irrelevant, L1 and L2 do not need to be loaded—most queries can be resolved at L1, significantly reducing token consumption. This "summaries resident, full text on demand" approach closely mirrors the progressive disclosure of Skills introduced in Chapter 2—both allow the Agent to see only lightweight metadata first, pulling in the full content layer by layer only when necessary, spending tokens where they matter most.
 
-**Choosing Markdown plain text over a specialized database as the underlying representation for knowledge** is a seemingly counterintuitive but carefully considered engineering decision. Plain text means users can directly read, edit, and correct the Agent's knowledge, while Git provides version control and rollback. More importantly, with the `write_file` capability, the Agent can record and organize knowledge on a working branch and merge it into the main library through the review workflow described below. At the end of a session, the system can propose writing user-preference updates to `user/memories/` and operational records to `agent/memories/`. The former remains part of the user-knowledge management discussed in this chapter. The latter becomes experience learning in the sense of Chapter 8 only after outcome evaluation, cross-trajectory generalization, and subsequent validation; an arbitrary single operation must not be treated directly as reliable experience.
+**Choosing Markdown plain text over a specialized database as the underlying representation for knowledge** is a seemingly counterintuitive but carefully considered engineering decision. Plain text means users can directly read, edit, and correct the Agent's knowledge, while Git provides version control and rollback. More importantly, with the `write_file` capability, the Agent can record and organize knowledge on a working branch and merge it into the main library through the review workflow described below. At the end of a session, the system can propose writing user-preference updates to `user/memories/` and operational records to `agent/memories/`. The former remains part of the user-knowledge management discussed in this chapter. The latter becomes experience learning in the sense of Chapter 9 only after outcome evaluation, cross-trajectory generalization, and subsequent validation; an arbitrary single operation must not be treated directly as reliable experience.
 
-However, adopting this plain-text, filesystem-style organization has a prerequisite that is easily overlooked but directly determines retrieval success: **links and indexes must be established between files**. The `.abstract`/`.overview` files mentioned earlier address the vertical, hierarchical summarization. What is emphasized here is horizontal association—if knowledge is simply split into a pile of independent text files laid out flat in a directory without any cross-references between them, then, aside from scanning all files sequentially or using vector retrieval, the Agent has almost no way to navigate between related entries. The more knowledge there is, the harder this scattered pile of files becomes to retrieve. The right approach is to organize the knowledge base like Wikipedia: whenever an entry mentions another, it links to that entry, supplemented by entry pages and index pages, so the Agent can walk from one concept to its neighbors—lightweight file links providing some of the navigation power of GraphRAG's entity-relationship graph. There is also a key practical difference here: **models vary in how reliably they create and maintain such links**. Stronger models, when writing new knowledge, will spontaneously refer back to existing entries and maintain indexes. However, many models do not do this proactively, simply appending files in isolation. Therefore, the knowledge-writing prompt must explicitly require this—for each new entry added, the system must first retrieve and link to relevant existing entries, and update the index page of the directory it belongs to, forming a bidirectionally reachable reference network, rather than letting the knowledge become disconnected entries.
+However, adopting this plain-text, filesystem-style organization has a prerequisite that is easily overlooked but directly determines retrieval success: **links and indexes must be established between files**. The `.abstract`/`.overview` files mentioned earlier address the vertical, hierarchical summarization. What is emphasized here is horizontal association—if knowledge is simply split into a pile of independent text files laid out flat in a directory without any cross-references between them, then, aside from scanning all files sequentially or using vector retrieval, the Agent has almost no way to navigate between related entries. The more knowledge there is, the harder this scattered pile of files becomes to retrieve. The right approach is to organize the knowledge base like Wikipedia: whenever an entry mentions another, it links to that entry, supplemented by entry pages and index pages, so the Agent can walk from one concept to its neighbors—lightweight file links providing some of the navigation power of GraphRAG's entity-relationship graph.
+
+There is also a key practical difference here: **models vary in how reliably they create and maintain such links**. Stronger models, when writing new knowledge, will spontaneously refer back to existing entries and maintain indexes. However, many models do not do this proactively, simply appending files in isolation. Therefore, the knowledge-writing prompt must explicitly require this—for each new entry added, the system must first retrieve and link to relevant existing entries, and update the index page of the directory it belongs to, forming a bidirectionally reachable reference network, rather than letting the knowledge become disconnected entries.
 
 ### How Knowledge Should Be Updated
 
@@ -541,7 +517,7 @@ This pipeline should explicitly separate three layers: the **raw-evidence layer*
 
 #### Periodic Reorganization of User Memory and Knowledge Bases
 
-Incremental updates are timely, but each sees only a local area. Over time, even a sequence of locally correct changes can create global problems: the same fact becomes scattered across files, old and new claims coexist, summaries drift away from the evidence, and the directory structure no longer fits the scale of the knowledge. The system therefore also needs periodic **full reorganization**. This can be understood as a concrete form of Chapter 8's "sleep learning" for knowledge management: new evidence and local updates accumulate during foreground interaction, while a periodic background window steps back to reconsider the whole knowledge system. It also echoes Claude Code's automatic memory, which merges or moves details out when its index approaches capacity.
+Incremental updates are timely, but each sees only a local area. Over time, even a sequence of locally correct changes can create global problems: the same fact becomes scattered across files, old and new claims coexist, summaries drift away from the evidence, and the directory structure no longer fits the scale of the knowledge. The system therefore also needs periodic **full reorganization**. This can be understood as a concrete form of Chapter 9's "sleep learning" for knowledge management: new evidence and local updates accumulate during foreground interaction, while a periodic background window steps back to reconsider the whole knowledge system. It also echoes Claude Code's automatic memory, which merges or moves details out when its index approaches capacity.
 
 The process has at least three core tasks:
 
@@ -559,11 +535,7 @@ Although periodic reorganization is comprehensive, its output still must not ove
 
 With a powerful knowledge base built, the next question is how the Agent can use it intelligently and autonomously. The traditional RAG process is a simple one-way data flow: the user's query is directly used for retrieval, the results are directly injected into the model's context, and the model directly generates the final answer. This "**Non-Agentic**" mode is efficient, but its ceiling is low: it is fundamentally a passive retrieve-and-generate pipeline, with no capacity to deeply understand a problem, decompose it, or explore it iteratively.
 
-To overcome this limitation, we must upgrade RAG from a fixed data processing flow to a dynamic, iterative exploration process led by the Agent. This is the core idea of "**Agentic RAG**."
-
-Traditional RAG is like being allowed a single library search before you must write your report. Agentic RAG is like a researcher who keeps returning to different shelves, adjusting search strategies, and cross-checking sources—starting to write only once the material is in hand.
-
-In this new paradigm, knowledge base retrieval is no longer an automated preliminary step. Instead, it is encapsulated as a **tool** that the Agent can call at any time. The Agent adopts the ReAct pattern (see definition in Chapter 1), leading the process through a "Think → Act → Observe" loop.
+To overcome this limitation, we must upgrade RAG from a fixed data processing flow to a dynamic, iterative exploration process led by the Agent. This is the core idea of "**Agentic RAG**." Traditional RAG is like being allowed a single library search before you must write your report. Agentic RAG is like a researcher who keeps returning to different shelves, adjusting search strategies, and cross-checking sources—starting to write only once the material is in hand. In this new paradigm, knowledge base retrieval is no longer an automated preliminary step. Instead, it is encapsulated as a **tool** that the Agent can call at any time. The Agent adopts the ReAct pattern (see definition in Chapter 1), leading the process through a "Think → Act → Observe" loop.
 
 Faced with a complex question, the Agent first "thinks" to analyze the core need and autonomously decides what query keywords would be most effective for retrieving information. Then it "acts" by calling the `knowledge_base_search` tool. After "observing" the preliminary results, it does not immediately generate an answer. Instead, it evaluates whether the information is sufficient—if not, it enters the next loop, refines the query for a more precise search, or even calls other tools for assistance. Only when it determines that sufficient information has been gathered does it synthesize all the context to generate a final, well-reasoned answer.
 
@@ -588,7 +560,7 @@ Agentic RAG fuses retrieval and reasoning through the Agent's own decisions: it 
 >
 > The comparison makes a strong case that agentic RAG's value lies in "solving problems," not merely "answering questions". It trades some response speed for robustness and answer quality on hard problems—and in this experiment's sentencing scenario, the shift from passive pipeline to active explorer shows up directly as a significant gain in multi-hop accuracy.
 
-This chapter and the preceding one both address Context—one within a single session, the other across multiple sessions. What this chapter primarily consolidates is declarative knowledge about users and the world. Chapter 8 reuses the same extraction and retrieval infrastructure, but applies it to behavioral knowledge supported by operational successes and failures: “under what conditions should the Agent do what?” The next chapter turns to Tools: how Agents interact with the external world through tool design, the MCP interoperability standard, and event-driven architectures.
+At this point we have covered the full stack, from basic retrieval through structured indexing to Agentic RAG. Recall the question left open in the first half of this chapter: once user memories number in the thousands, how do we retrieve precisely the relevant few, and how do we tell contradictory records apart? We now turn these knowledge-base techniques **back** onto the user memory discussed at the start of the chapter. Experiments 3-9 and 3-11 reuse the three-tier evaluation framework established earlier (and the evaluation set from Experiment 3-1) to test whether these techniques resolve, tier by tier, the precision and conflict problems of user-memory retrieval.
 
 > **Experiment 3-9 ★★: Building User Memory with Agentic RAG**
 >
@@ -627,7 +599,7 @@ The elegance of the method is that it strengthens both retrieval modes at once. 
 >
 > When a user inputs a query requiring specific context, such as "What is ACME Corporation's recent revenue growth?", the difference is immediately apparent. In the **context-free** knowledge base, the query might match many text blocks containing the keywords "revenue growth" but from different companies, different years, or even general industry analysis, resulting in low relevance and high noise. In the **context-aware** knowledge base, because each text block has a precise "identity tag", retrieval is guided accurately toward text blocks that not only contain the keywords but also have a context prefix matching the query's intent ("ACME Corporation", "recent"). The experiment logs clearly show that context-aware retrieval results score significantly higher than context-free results, and the returned text blocks are much more precise.
 >
-> The cost of this performance improvement is the additional LLM calls during the indexing phase. However, this is fully controllable through prompt caching (the cross-request caching mechanism introduced in Chapter 2, where repeated calls for the same prompt prefix cost about 1/10 of the original), bringing the cost to approximately $1 per million document tokens. According to Anthropic research, combining this technique with BM25 can reduce the retrieval failure rate (i.e., the top-20 miss rate mentioned in "How to Measure Retrieval Quality", 1 − recall@20) by 49%, and by 67% when combined with a reranker. The experiment makes a strong case: when building production-grade RAG, investing in smarter, context-aware preprocessing of knowledge is an engineering decision with an outsized return.
+> The cost of this performance improvement is the additional LLM calls during the indexing phase. However, this is fully controllable through prompt caching (the cross-request caching mechanism introduced in Chapter 2, where repeated calls for the same prompt prefix cost about 1/10 of the original), bringing the cost to approximately $1 per million document tokens. According to Anthropic research, combining this technique with BM25 can reduce the retrieval failure rate by 49%, and by 67% when combined with a reranker. The experiment makes a strong case: when building production-grade RAG, investing in smarter, context-aware preprocessing of knowledge is an engineering decision with an outsized return.
 
 That validates Contextual Retrieval on document knowledge bases. Applying the same technique to the user memory scenario gives us the next experiment.
 
@@ -668,7 +640,7 @@ The process consists of two phases:
 >
 > The core of the experiment lies in its innovative data-driven knowledge engineering approach. Instead of using a pre-defined rigid data schema, the **knowledge extraction** phase employs a "bottom-up" factor discovery strategy—by having the LLM analyze hundreds of sample cases and freely list all possible key factors influencing the judgment, the project team was able to construct a modular data schema that better fits the data itself, rather than human prior knowledge. The schema includes a "core schema" applicable to all cases (circumstances like voluntary surrender and compensation) plus "extended schemas" for specific charges such as theft or intentional injury (fields like amount involved and injury level).
 >
-> In the **factor analysis** phase, instead of directly having the AI predict the prison term (which would create a "black box"—it gives an answer but cannot explain why), the case information is first translated into a numerical format that computers can process effectively. The translation method is intuitive: for fields with multiple options like "crime type," the options are encoded as a one-hot indicator vector—Theft = [1,0,0], Robbery = [0,1,0], Fraud = [0,0,1] (the reason for not using 1, 2, 3 is that the magnitude of numbers would imply to many algorithms that "fraud" is more serious simply because its numeric code is larger, whereas one-hot indicators only encode "which category," implying no magnitude relationship). For yes/no questions like "voluntary surrender" or "compensation," 1 means yes, 0 means no. Thus, each case becomes a numeric feature vector, and clustering algorithms are then used to find natural "case prototypes" in the data. For example, in intentional injury cases, typical patterns like "minor injury caused by an unarmed scuffle" or "armed, premeditated gang causing severe injury" might be automatically clustered. By analyzing the key features defining these clusters, a data-driven "Factor Importance Hierarchy Model" is constructed.
+> In the **factor analysis** phase, instead of directly having the AI predict the prison term (which would create a "black box"—it gives an answer but cannot explain why), the case information is first translated into a numerical format that computers can process effectively. The translation method is intuitive: for fields with multiple options like "crime type," the options are encoded as a one-hot indicator vector—Theft = [1,0,0], Robbery = [0,1,0], Fraud = [0,0,1] (the reason for not using 1, 2, 3 is that the magnitude of numbers would imply to many algorithms that "fraud" is more serious simply because its numeric code is larger, whereas one-hot indicators only encode "which category," implying no magnitude relationship). For yes/no questions like "voluntary surrender" or "compensation," 1 means yes, 0 means no. Thus, each case becomes a numeric feature vector, and clustering algorithms are then used to find natural "case prototypes" in the data. For example, when the intentional injury cases are clustered together, the algorithm separates them—by features such as what triggered the conflict, how the assault was carried out, and how severe the harm was—into several groups of mutually similar cases; each group is one typical pattern, such as "an unarmed brawl triggered by a minor quarrel that left the victim slightly injured" or "a premeditated armed gang assault that left the victim seriously injured". By analyzing the key features defining these clusters, a data-driven "Factor Importance Hierarchy Model" is constructed.
 >
 > Ultimately, this "Factor Importance Hierarchy Model" becomes the core driver for the Agent's **conversational information gathering**. When a user describes a case, the Agent uses this model to intelligently ask guiding questions in order of importance to fill in all key judgment factors. Once information gathering is complete, the Agent retrieves the most similar case prototype from the knowledge base and provides a data-driven analysis and explanation supported by ample precedents, based on the prototype's statistical data (e.g., typical sentencing range).
 >
@@ -688,27 +660,22 @@ A face's appearance or a person's voice is difficult to describe in words and ca
 
 ## Chapter Summary
 
-This chapter built the AI Agent's persistent memory system at two scales: user memory for the individual, and a shared knowledge base for everyone.
+This chapter divided persistent knowledge into two scales: user memory, which serves an individual, and a shared knowledge base, which serves everyone. The former follows a lifecycle of read relevant memories → extract candidates in the background → verify source and policy → update, and can be traded off among Simple Notes, JSON Cards, or executable state as requirements dictate.
 
-For **user memory**, we explored four progressive strategies, from atomic facts (Simple Notes) to contextualized knowledge management (Advanced JSON Cards), exposing the fundamental tension in information representation between simplicity and expressiveness. Frameworks like Mem0 and Memobase supply engineered memory management, and privacy protection keeps sensitive information safe throughout.
+In terms of the book's structure, this chapter builds the **proposal** stage of the discovery loop from Chapter 1: turning one piece of evidence into a minimal, auditable, reversible change, without judging whether the system as a whole improved.
 
-For **knowledge acquisition**, the core stack is: document chunking defines retrieval units, dense embeddings capture semantics, sparse embeddings match keywords, result fusion merges candidates into a single pool, neural reranking refines the final order, and metrics like recall@k measure retrieval quality.
+The main pipeline of a knowledge base is chunking → dense/sparse retrieval → fusion → reranking → generation, accepted against metrics such as recall@k. RAPTOR, GraphRAG, OpenViking, contextual retrieval, and Agentic RAG each change how knowledge is organized, chunked, or how retrieval is controlled; in practice a structured overview can stay resident in context while raw detail is recalled on demand.
 
-For **knowledge understanding**, we moved past flat document chunking: RAPTOR's tree of hierarchical summaries and GraphRAG's entity-relationship network give knowledge structure; Contextual Retrieval repairs the semantic loss caused by chunking at its source; and Agentic RAG turns the passive "retrieve-generate" pipeline into active, iterative exploration led by the Agent. The same techniques apply to user memory, converging at last in a **two-tier memory architecture**: Advanced JSON Cards kept resident in the context supply the "overview," Contextual Retrieval supplies "details" on demand. Stacked together, the two tiers sharply improve cross-session recall accuracy and conflict resolution—and are what truly support "proactive service," the top level of the three-level framework from the chapter's start.
-
-For **knowledge updating**, the system needs two rhythms: incremental updates promptly absorb new evidence, while periodic reorganization returns to the complete knowledge and raw data to deduplicate, retire, merge, restructure, check omissions, and qualify scenarios. Whether the knowledge is represented as Markdown or Python, both paths should have a Proposer Agent submit an evidence-grounded diff and a heterogeneous Reviewer Agent audit it independently. Only after approval should the PR merge and the derived indexes be rebuilt.
-
-This chapter and the previous one both address the "context" problem—one within a single session, the other across multiple sessions. This chapter primarily distills declarative knowledge about users and the world. Chapter 8 will reuse the same extraction and retrieval infrastructure for behavioral knowledge supported by successful and failed runs: what should be done under which conditions. The next chapter turns to "tools": how Agents interact with the external world through tools, including tool design, the MCP interoperability standard, and event-driven architecture.
+Writes must not skip source, time, conflict, and privacy checks. Incremental updates absorb new evidence, while periodic consolidation goes back to the raw data to deduplicate, merge, and rebuild the index, and a pending diff is published only after independent review. The previous chapter managed context within a single task; this one manages declarative knowledge across tasks. Chapter 9 applies the same infrastructure to behavioral experience—what to do under which conditions.
 
 ## Thought Questions
 
 1.  ★★ In a user memory system, when the same user provides contradictory information in different sessions (e.g., mentioning two different home addresses), how should the memory system handle this conflict?
 2.  ★★ Contextual Retrieval adds context from the original document to each chunk. However, if the original document itself is structurally messy or contains contradictory information, this method may propagate or even amplify errors. How would you introduce an "information quality" signal in the retrieval phase?
-3.  ★★★ Agentic RAG allows the Agent to actively decide when to search, what to search for, and whether to continue searching. But if the model doesn't know what it doesn't know, it cannot correctly trigger a search. How can this "metacognition" problem be solved?
-4.  ★★ Multimodal information extraction converts charts into text descriptions before retrieval. This "translation" process may lose spatial relationships in the visual information. Give a specific example of chart information that a pure text description cannot fully convey, and design a scheme to preserve that information.
-5.  ★★★ Rich Sutton's "Bitter Lesson" argues that general methods (search and learning) will ultimately outperform hand-crafted features. Is the entire knowledge system built in this chapter (chunking strategies, index structures, retrieval pipelines) itself a form of "hand-crafted design"? If model capabilities become strong enough, could these designs be replaced by simply "inputting everything"?
-6.  ★★★ As model capabilities improve, do you think domain-specific knowledge bases will still be important? Could a future powerful foundation model potentially contain all the information in a domain knowledge base, thereby eliminating the need for one?
-7.  ★ RAPTOR builds a tree index through bottom-up hierarchical summarization, while GraphRAG builds a graph-structured index through entity relationships. What types of queries are these two structured indexes each good at answering?
-8.  ★★ The filesystem paradigm organizes knowledge into a hierarchical structure similar to a file system. Compared to traditional vector database RAG, in what scenarios does this approach have an advantage?
-9.  ★★★ Automatically discovering "judgment factors" and "factor importance hierarchies" from structured data (e.g., judicial judgment databases) essentially involves the Agent inducing rules from data. Can this data-driven knowledge extraction achieve the quality of rules manually crafted by human experts?
-10. ★★★ Design both incremental-update and periodic-reorganization workflows for a Markdown user-memory library. If the Reviewer and Proposer use the same model and can see only the conversation fragments selected by the Proposer, what errors could still be merged? Explain improvements in terms of model independence, evidence coverage, and tool permissions.
+3.  ★★ Multimodal information extraction converts charts into text descriptions before retrieval. This "translation" process may lose spatial relationships in the visual information. Give a specific example of chart information that a pure text description cannot fully convey, and design a scheme to preserve that information.
+4.  ★★★ Rich Sutton's "Bitter Lesson" argues that general methods (search and learning) will ultimately outperform hand-crafted features. Is the entire knowledge system built in this chapter (chunking strategies, index structures, retrieval pipelines) itself a form of "hand-crafted design"? If model capabilities become strong enough, could these designs be replaced by simply "inputting everything"?
+5.  ★★★ As model capabilities improve, do you think domain-specific knowledge bases will still be important? Could a future powerful foundation model potentially contain all the information in a domain knowledge base, thereby eliminating the need for one?
+6.  ★ RAPTOR builds a tree index through bottom-up hierarchical summarization, while GraphRAG builds a graph-structured index through entity relationships. What types of queries are these two structured indexes each good at answering?
+7.  ★★ The filesystem paradigm organizes knowledge into a hierarchical structure similar to a file system. Compared to traditional vector database RAG, in what scenarios does this approach have an advantage?
+8.  ★★★ Automatically discovering "judgment factors" and "factor importance hierarchies" from structured data (e.g., judicial judgment databases) essentially involves the Agent inducing rules from data. Can this data-driven knowledge extraction achieve the quality of rules manually crafted by human experts?
+9. ★★★ Design both incremental-update and periodic-reorganization workflows for a Markdown user-memory library. If the Reviewer and Proposer use the same model and can see only the conversation fragments selected by the Proposer, what errors could still be merged? Explain improvements in terms of model independence, evidence coverage, and tool permissions.

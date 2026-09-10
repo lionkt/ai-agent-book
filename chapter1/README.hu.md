@@ -4,6 +4,16 @@
 
 ← [Vissza a magyar főoldalhoz](../docs/hu/README.md) · 📖 [A fejezet olvasása](../book-hu/chapter1.md)
 
+## Hogyan olvassuk a kísérleteket?
+
+A törzsszöveg rövid mechanizmus-skeletonokkal magyarázza a vezérlési folyamatot; a kísérleti könyvtárakban találhatók a teljes SDK-adapterek, naplók, tesztek és átvételi bizonyítékok. Nem kell minden fájlt sorról sorra elolvasni.
+
+- **Starter:** Kezdje a céllal, a minimális paranccsal és az átvételi feltételekkel; induljon innen: [context](context/);
+- **Builder:** Kövesse a belépési pontot, a fő ciklust, az állapot-/üzenetsémát, az eszközöket és az ellenőrzőt.
+- **Maintainer:** Végül olvassa el a teszteket, a bizonyíték-manifeszteket, a hibakezelést, a visszaállítási útvonalakat és a provider-adaptereket.
+
+Első olvasáskor átugorható a hitelesítő adatok betöltése, a megjelenítési réteg és a provider-kompatibilitás; a számok reprodukálásakor térjen vissza.
+
 ## Kapcsolódó projektek
 
 | Kísérlet | Projekt | Típus | Leírás |
@@ -11,6 +21,7 @@
 | 1-1 | [context](context/) | ✅ | Több LLM-szolgáltatóval végzett ablációs kísérleteken mutatja be a kontextus összetevőinek fontosságát. |
 | 1-2 | [web-search-agent](web-search-agent/) | ✅ | Alapszintű mélykereső ágenst valósít meg többkörös kereséssel és információ-összesítéssel. |
 | 1-3 | [search-codegen](search-codegen/) | ✅ | Webes keresést és kódsandboxot kapcsol össze összetettebb elemzési feladatokhoz. |
+| 1-4 | [image-gen-workflow](image-gen-workflow/) | ✅ | Konkrét és tág igények × munkafolyamat (Kimi K3 átírás + Tongyi Wanxiang) és natív (Gemini / GPT-Image 2) kétútvonalas valós összevetése: konkrét igénynél a natív út a hűsegesebb (a plakátszöveget az átíró csomópont a negatív promptba tette), tág igénynél az átírás jelenetkonkretizálása fantáziát ad, de a GPT-Image 2 önmaga is kiegészíti a nézőpontot – az adapterréteg modell általi interiorizálásának empirikus bizonyítéka. |
 | 7-1, 7-2 | [learning-from-experience](learning-from-experience/) | ✅ | A Q-learninget és az LLM-alapú kontextuson belüli tanulást hasonlítja össze egy kincskereső játékban. |
 
 ## Projekttípusok

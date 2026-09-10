@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the retained historical 10-4 campaign for current Experiment 10-3."""
+"""Validate the retained historical 10-3 campaign for current Experiment 10-3."""
 
 from __future__ import annotations
 
@@ -42,9 +42,9 @@ def main() -> int:
     parser.add_argument("run_dir", type=Path)
     args = parser.parse_args()
     run_dir = args.run_dir.resolve()
-    protocol = json.loads((run_dir / "protocol.json").read_text())
-    summary = json.loads((run_dir / "summary.json").read_text())
-    aggregate = json.loads((run_dir / "aggregate.json").read_text())
+    protocol = json.loads((run_dir / "protocol.json").read_text(encoding="utf-8"))
+    summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
+    aggregate = json.loads((run_dir / "aggregate.json").read_text(encoding="utf-8"))
 
     expected_names = {
         f"{task}__{condition}__s{seed}.json"
@@ -54,7 +54,7 @@ def main() -> int:
     }
     episode_paths = sorted((run_dir / "episodes").glob("*.json"))
     actual_names = {path.name for path in episode_paths}
-    episodes = [json.loads(path.read_text()) for path in episode_paths]
+    episodes = [json.loads(path.read_text(encoding="utf-8")) for path in episode_paths]
 
     episode_pairs = Counter((ep.get("task"), ep.get("condition")) for ep in episodes)
     event_kinds = Counter(
@@ -168,7 +168,7 @@ def main() -> int:
 
     acceptance = {
         "schema_version": 1,
-        "experiment": "10-4",
+        "experiment": "10-3",
         "run_dir": run_dir.name,
         "passed": all(gates.values()),
         "gates": gates,
@@ -185,12 +185,12 @@ def main() -> int:
     }
     manifest = {
         "schema_version": 1,
-        "experiment": "10-4",
+        "experiment": "10-3",
         "run_dir": run_dir.name,
         "files": files,
     }
-    (run_dir / "acceptance.json").write_text(json.dumps(acceptance, indent=2) + "\n")
-    (run_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (run_dir / "acceptance.json").write_text(json.dumps(acceptance, indent=2) + "\n", encoding="utf-8")
+    (run_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(acceptance, indent=2))
     return 0 if acceptance["passed"] else 1
 

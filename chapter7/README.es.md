@@ -1,36 +1,47 @@
-# Capítulo 7 · Posentrenamiento de Modelos
+# Capítulo 7 · Evaluación de Agentes
 
-> Tres etapas (Pre-entrenamiento/SFT/RL): cuándo elegir SFT vs. RL, internalización de llamadas a herramientas, eficiencia de muestra
+> Convertir el rendimiento en señales comparables: entornos, métricas, significación estadística, selección guiada por evaluación
 
 ← [Volver al README principal](../docs/es/README.md) · 📖 [Leer texto del capítulo](../book-es/chapter7.es.md)
 
-Los límites de implementación, código externo y evidencia directa de cada experimento se detallan en el [registro de aceptación](EXPERIMENT_LEDGER.md).
+Los requisitos, la evidencia directa y los límites de cada experimento se detallan en el [registro de aceptación](EXPERIMENT_LEDGER.md).
+
+## Cómo leer los experimentos
+
+El texto usa skeletons breves para explicar el flujo de control; el directorio de experimentos contiene adaptadores SDK completos, registros, pruebas y evidencias de aceptación. No hace falta leer cada archivo línea por línea.
+
+- **Starter:** Empieza por el objetivo, el comando mínimo y la aceptación; comienza con [tau2-bench-eval](tau2-bench-eval/);
+- **Builder:** Sigue el punto de entrada, el bucle central, el esquema de estado/mensajes, las herramientas y el verificador.
+- **Maintainer:** Después revisa pruebas, manifiestos, fallos, rollback y adaptadores de proveedores.
+
+En la primera pasada puedes omitir credenciales, presentación y compatibilidad de proveedores; vuelve al reproducir una cifra.
 
 ## Proyectos Complementarios
 
 | Exp. | Proyecto | Tipo | Descripción |
 | :--: | --- | :--: | --- |
-| 7-1, 7-2 | [learning-from-experience](../chapter1/learning-from-experience/) | ✅ | En el mismo entorno determinista de búsqueda del tesoro se completaron 10.000 partidas de Q-learning, 100 evaluaciones voraces y una primera ejecución oficial con Moonshot `kimi-k3`; la [evidencia de ambos brazos](../chapter1/learning-from-experience/validation/20260730_011704/evidence.json) conserva 17/17 respuestas originales de la API sin *fallback* |
-| 7-3 | [MiniMind-pretrain](MiniMind-pretrain/) · `MiniMind-pretrain/minimind/` | 📖 | Documentación complementaria y código externo `bojieli/minimind` fijado a `8bdc5d9…`; el *checkout* no está presente y el entrenamiento no se ejecutó |
-| 7-4 | [MiniMind-pretrain](MiniMind-pretrain/) · `MiniMind-pretrain/minimind-v/` | 📖 | Documentación complementaria y código externo `bojieli/minimind-v` fijado a `ead791c…`; el *checkout* no está presente y el entrenamiento no se ejecutó |
-| 7-5 | [continued-pretraining](continued-pretraining/) | ✅ | Preentrenamiento continuo sobre datos de un dominio específico para mejorar su rendimiento |
-| 7-6 | [sesame](sesame/) · [orpheus](orpheus/) | 🚧 | Dos vías reales de SFT de voz: modelado con etiquetas paralingüísticas y coherencia de timbre entre frases; se requiere el adaptador entrenado, audio y evidencia comparativa para completarlas |
-| 7-7 | [MultilingualReasoning](MultilingualReasoning/) | 🚧 | Implementación de SFT de razonamiento multilingüe; se necesita un checkpoint entrenado y comparaciones antes/después en benchmarks entre idiomas |
-| 7-8 | [prompt-distillation](../chapter8/prompt-distillation/) | ✅ | Implementación transversal de generación de prompts/respuestas del profesor, entrenamiento del alumno y comparación calidad-costo; generar ejemplos o prompts no basta para considerarla completa |
-| 7-9 | [cot-distillation](cot-distillation/) | 🚧 | Conserva y filtra por reglas CoT reales de Kimi K3; incluye SFT del alumno sin mocks, comparación de tres brazos sobre los mismos problemas, significación pareada y validación de reflexión/retroceso, pero la máquina actual carece de un checkpoint CUDA |
-| 7-10 | [documentación de AdaptThink](AdaptThink/) · `AdaptThink-original/` | 📖 | Código de entrenamiento externo de `bojieli/AdaptThink` para que el modelo elija Thinking/NoThinking según la dificultad |
-| 7-11 | `SFTvsRL/` | 📖 | GeneralPoints-L/VL de `bojieli/SFTvsRL`: comparación memoria-generalización ID/OOD entre SFT y PPO con el mismo presupuesto |
-| 7-12 | [documentación de SpatialReasoning](SpatialReasoning/) · `SFTvsRL/` | 📖 | Entrenamiento V-IRL-L/VL y evaluación OOD entre ciudades/reglas en el mismo *checkout* de `bojieli/SFTvsRL`; no es un repositorio SpatialReasoning independiente |
-| 7-13 | [documentación de SimpleVLA-RL](SimpleVLA-RL/) · `SimpleVLA-RL/SimpleVLA-RL/` | 📖 | Repositorio `PRIME-RL/SimpleVLA-RL` y `verl/` integrado fijados; OpenVLA-OFT, LIBERO/RoboTwin, checkpoints, Flash Attention, CUDA/controlador y recursos del simulador aún no forman un bloqueo de dependencias completamente validado |
-| 7-14 | [documentación de retool](retool/) · `verl/` · `SandboxFusion/` | 📖 | La receta ReTool procede de `bojieli/verl` y la ejecución de código en tiempo real depende de `bojieli/SandboxFusion`; no existe un repositorio de código independiente llamado `retool` |
-| 7-15 | [documentación de AWorld-train](AWorld-train/) · `AWorld/` | 📖 | Sandbox MCP y entrada de entrenamiento de GAIA en `bojieli/AWorld`, con `bojieli/verl` como backend de entrenamiento |
-| 7-16 | [documentación de RLVP](RLVP/) · `RLVP/rlvp/` | 📖 | El código completo de entrenamiento/evaluación procede de `19PINE-AI/rlvp` fijado a `1ad30bc…`; el *checkout* no está presente y el entrenamiento no se ejecutó |
-| 7-17 | [premature-completion-dpo](premature-completion-dpo/) | ✅ | Reparación DPO de bad cases de finalización prematura en GPU |
-| 7-18 | [curly-quote-sft](curly-quote-sft/) | ✅ | SFT auditado de comillas curvas chinas sensible al ámbito: 1.024/256/256 casos de entrenamiento/reserva/borde, 10 géneros y 9 lenguajes; Qwen3-8B alcanza 96,9%/97,7% exacto y 100% de preservación protegida en GPU |
-| 7-19 | [exact-copy-sft](exact-copy-sft/) | ✅ | SFT auditado de copia byte-exacta: 1.024/256/256 casos; Qwen3-8B alcanza 78,9% en reserva y 80,1% en borde, con auditoría de tokenizadores Qwen3/Qwen2.5/Mistral |
-| — | `verl/` | 📖 | Marco eficiente de RLHF para LLM compatible con PPO, GRPO, DAPO y otros algoritmos |
-| — | [Intuitor](Intuitor/) | ✅ | Entrena razonamiento intuitivo para obtener decisiones plausibles con rapidez sin depender de una cadena de pensamiento detallada |
-| — | `tinker-cookbook/` | 📖 | Colección de técnicas prácticas y mejores prácticas para entrenar modelos |
+| 7-1 | `tau2-bench/` | 📖 | Ejecuta la evaluación multirronda con doble control de τ²-bench y la compara con las definiciones de tareas, condiciones de éxito y simulador de usuario de τ-bench |
+| 7-2 | `tau2-bench/` | 📖 | Completa manualmente tareas graduadas de τ²-bench y registra sus trayectorias; es solo una de las seis clases de benchmarks que se muestrean en 7-2 |
+| 7-2 | `terminal-bench/` | 📖 | Evalúa la capacidad integral del Agent en un entorno de terminal real (compilación, entrenamiento y despliegue), con unas 100 tareas y un marco de ejecución |
+| 7-2 | `SWE-bench/` | 📖 | Evalúa la capacidad de los LLM para resolver incidencias reales de GitHub en las variantes SWE-bench, Lite, Verified y Multimodal |
+| 7-2 | `GAIA/` | 📖 | Evalúa herramientas, búsqueda y autonomía mediante más de 450 preguntas no triviales con respuestas inequívocas y tres niveles de dificultad |
+| 7-2 | `OSWorld/` | 📖 | Evalúa tareas complejas en un sistema operativo completo: gestión de archivos, uso de aplicaciones y configuración del sistema |
+| 7-2, 7-13 | `android_world/` | 📖 | Evalúa navegación de aplicaciones, interacción con la IU y finalización de tareas en Android (repositorio de benchmark externo) |
+| 7-3 | [user-memory-evaluation](../chapter3/user-memory-evaluation/) | ✅ | La rúbrica multidimensional de cuatro niveles se ejecutó sobre 180/180 evaluaciones reales (60 casos × 3 sistemas) |
+| 7-4 | [user-memory-system-evaluation](user-memory-system-evaluation/) | ✅ | 180/180 trayectorias reales (60 casos × 3 sistemas), sin errores y con precios completos en la moneda nativa |
+| 7-5 | [tts-quality-eval](tts-quality-eval/) | ✅ | La [aceptación real](tts-quality-eval/validation/mistral_multimodal_20260730/manifest.json) completa 8/8 evaluaciones Voxtral de cuatro dimensiones sobre dos proveedores y cuatro clases de muestras; cada audio candidato y de referencia tiene hash |
+| 7-6 | [android-world/failure-attribution](android-world/failure-attribution/) | ✅ | Offline failure attribution over the retained T3A log. Population, recomputed from the raw log: 53 task blocks, 1 skipped by the benchmark's own `initialize_task` crash, 52 real failures; 24/52 ended with the Agent declaring completion; 9 failures have goals requiring the current date and only 2 ever obtain it (incidentally, from a form default showing `Sun, Oct 15`); the self-reported "no visible effect" family occurs 55 times across 18/52 episodes. Ten episodes annotated with build-verified step-level citations — 9 silent failures, 7 of 10 first errors on an assistant message, 5 high / 4 medium / 1 low confidence. Third pass: the second moved 7 of 10 first-error steps earlier, the third corrected two population statistics and one record's description, every change retained with its rationale. Includes 3 trajectory-prefix regression tasks and 3 corrections to `t3a_failed_analysis.md` |
+| 7-7 | [user-memory-policy-eval](user-memory-policy-eval/) | ✅ | Ejecuta 11 casos problemáticos de prefijos de trayectoria en representaciones de memoria JSON, Markdown y similares a Python, con llamadas reales a OpenRouter y comprobaciones deterministas de políticas. |
+| 7-8 | [elo-leaderboard](elo-leaderboard/) | ✅ | Tabla de clasificación del rendimiento de Agentes basada en ELO y comparaciones directas |
+| 7-9 | [model-action-threshold](model-action-threshold/) | ✅ | Compara GPT-5.6-sol y Claude Sonnet 5 en la transición de la exploración a la primera edición bajo el mismo Coding Harness neutral; se completaron 18/18 celdas sin errores de API y el [manifiesto](model-action-threshold/results/exp7-8-action-threshold-20260731-v1/manifest.json) vincula trayectorias y resúmenes mediante hashes verificables |
+| 7-10 | [agent-cost-analysis](agent-cost-analysis/) | ✅ | Desglose integral de costos para una tarea multirronda de reembolso, con diseño compatible con caché KV y cuantificación A/B del ahorro por compresión de contexto |
+| 7-11 | [model-benchmark](model-benchmark/) | 🚧 | Están implementadas las campañas 8K/32K/128K × 512/2048, rampas por límites, costos del Agent y disponibilidad durante 168 horas; todavía no hay evidencia de aceptación |
+| 7-12 | [user-memory-system-evaluation](user-memory-system-evaluation/) | ✅ | La matriz completa 4×3×2×60 conserva 1.440/1.440 trayectorias reales sin errores ni uso sin precio, con métricas completas de recuperación y tareas, análisis de interacción y un verificador independiente aprobado. |
+| 7-13 | [android-world](android-world/) | 📖 | Informe y notas de análisis de fallos de la evaluación de T3A Agent en AndroidWorld (punto de partida de 7-12, no código fuente del benchmark) |
+| 7-14 | [openvla-robotwin2-eval](openvla-robotwin2-eval/) | ✅ | La campaña oficial con una GPU completó 256 episodios por brazo: chunk 1 obtuvo 0/256 y chunk 25 obtuvo 26/256, con hashes de los 512 rollouts. |
+| — | [public-health-reporting-eval](public-health-reporting-eval/) | ✅ | Evalúa objetivamente las llamadas a herramientas, la exactitud de los cálculos, las citas de evidencia y las afirmaciones sin fundamento sobre datos agregados sintéticos al estilo DHIS2 |
+
+> Los benchmarks externos entre comillas invertidas deben clonarse por separado. [`android-world/`](android-world/) (con guion) contiene las notas internas sobre la evaluación de T3A; no es la misma ruta que el código externo `android_world/`.
 
 ## Tipos de Proyectos
 
@@ -38,4 +49,4 @@ Los límites de implementación, código externo y evidencia directa de cada exp
 | :--: | --- | --- |
 | ✅ | **Autónomo** | Código completo en este repositorio, se ejecuta tras configurar la Clave API |
 | 📖 | **Guía de Reproducción** | Documento detallado que depende de **repositorios externos** para realizar `git clone` |
-| 🚧 | **En curso** | Existe una implementación, pero el entrenamiento o la evidencia de aceptación requerida por el texto aún no está completa |
+| 🚧 | **En curso** | Existe una implementación, pero el alcance del experimento o su evidencia de aceptación aún no satisface todos los requisitos del texto |

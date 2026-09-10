@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the exact Chapter 4 Experiment 4-7 contract.
+"""Run the exact Chapter 4 Experiment 4-1 contract.
 
 Unlike the original mechanism demo, this runner:
 
@@ -42,7 +42,7 @@ CHAPTER4 = HERE.parent
 REPO = CHAPTER4.parent
 PROTOCOL_PATH = HERE / "experiment_protocol.json"
 MCP_SERVER = CHAPTER4 / "perception-tools" / "src" / "main.py"
-VALIDATION_ROOT = HERE / "validation" / "experiment_4_7"
+VALIDATION_ROOT = HERE / "validation" / "experiment_4_1"
 
 MODEL = "qwen3:4b"
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
@@ -129,6 +129,11 @@ def write_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2, default=str) + "\n",
                     encoding="utf-8")
+
+
+def _server_info(initialize):
+    """MCP SDK v2 renamed ``serverInfo`` to ``server_info``; accept either."""
+    return getattr(initialize, "server_info", None) or initialize.serverInfo
 
 
 def schema_dict(tool) -> dict[str, Any]:
@@ -403,7 +408,7 @@ def mcp_receipt(tool_name: str, result, payload: dict[str, Any],
         "backend": configured_backend or payload_backend,
         "origin": configured.get("origin"),
     }
-    is_error = bool(getattr(result, "isError", False))
+    is_error = bool(getattr(result, "isError", False) or getattr(result, "is_error", False))
     # Remote bodies are untrusted observations and may legitimately discuss a
     # "simulation" or "mock". Inspect only control-plane provenance/error
     # metadata so content cannot falsely invalidate (or validate) the backend.
@@ -1098,8 +1103,8 @@ async def run(campaign_id: str | None = None, *, resume: bool = False) -> Path:
             catalog = {
                 "transport": "mcp-stdio", "server": str(MCP_SERVER),
                 "tools_list_received": True,
-                "server_name": initialize.serverInfo.name,
-                "server_version": initialize.serverInfo.version,
+                "server_name": _server_info(initialize).name,
+                "server_version": _server_info(initialize).version,
                 "tool_count": len(schemas), "unique_tool_count": len({s["name"] for s in schemas}),
                 "schema_tokens_o200k": count_tokens(schema_text),
                 "schema_bytes": len(schema_bytes), "schema_sha256": sha256_bytes(schema_bytes),
@@ -1178,7 +1183,7 @@ async def run(campaign_id: str | None = None, *, resume: bool = False) -> Path:
                 records, schemas, catalog, protocol, comparison, embedding_receipt
             )
             summary = {
-                "experiment": "4-7", "campaign_id": campaign_id,
+                "experiment": "4-1", "campaign_id": campaign_id,
                 "generated_at": datetime.now(timezone.utc).isoformat(),
                 "model": MODEL, "catalog": catalog,
                 "embedding": embedding_receipt,

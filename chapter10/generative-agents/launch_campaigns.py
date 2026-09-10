@@ -31,7 +31,7 @@ def main() -> int:
     launches = []
     for arm in ARMS:
         status_path = output / "status" / f"{arm}.json"
-        if status_path.exists() and json.loads(status_path.read_text()).get("complete"):
+        if status_path.exists() and json.loads(status_path.read_text(encoding="utf-8")).get("complete"):
             launches.append({"arm": arm, "skipped": "already complete"})
             continue
         command = [
@@ -72,12 +72,12 @@ def main() -> int:
         )
     record = {
         "schema_version": 1,
-        "experiment": "10-7",
+        "experiment": "10-5",
         "launched_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "launches": launches,
     }
     launch_path = output / "launch.json"
-    launch_path.write_text(json.dumps(record, indent=2) + "\n")
+    launch_path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(record, indent=2))
     return 0
 

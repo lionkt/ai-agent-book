@@ -401,7 +401,7 @@ prompt-distillation/
     └── prompt_distillation_trl/
 ```
 
-A book-audited CUDA run is retained under `validation/exp7-8-kimi3-smollm2-20260730/`:
+A book-audited CUDA run is retained under `validation/exp8-8-kimi3-smollm2-20260730/`:
 SmolLM2-135M-Instruct student trained on Kimi K3 teacher labels (160 train / 80 test rows).
 The completed campaign retains all 160 training and 80 held-out teacher receipts.
 Held-out results: teacher 100%, baseline 0%, trained 95%; ~197× latency speedup;

@@ -6,15 +6,15 @@ Ezek a termékek sokféle formát öltenek, de van egy közös jellemzőjük: m�
 
 Ez a fejezet gyakorlati példákkal indul, majd visszavezet az AI-ügynökök alapvető összetevőihez: az olvasók első kézből tapasztalhatják meg, mire képesek a modern ügynökök, megérthetik a mögöttes architektúrát, és elsajátíthatják az ügynökrendszerek építésének tervezési mintáit és bevált gyakorlatait.
 
-> "Olvasási tipp": Ez a fejezet az egész könyv koncepcionális térképe: tömör áttekintés a központi formuláról, a működési ciklusról, a mérnöki keretrendszerről és az ügynöktervezési mintákról. Megalapozza a későbbi fejezetekben használt közös szókincset és referenciapontokat. Ne próbáld meg az első olvasáskor az összes fogalmat megjegyezni; a nagy képre koncentrálj. Minden későbbi fejezet egy-egy itt bevezetett szempontot fejt ki részletesen, és bármikor visszatérhetsz ehhez a fejezethez, ha újra kell tájékozódnod.
+> **Olvasási tipp**: Ez a fejezet az egész könyv koncepcionális térképe: tömör áttekintés a központi formuláról, a működési ciklusról, a mérnöki keretrendszerről és az ügynöktervezési mintákról. Megalapozza a későbbi fejezetekben használt közös szókincset és referenciapontokat. Ne próbáld meg az első olvasáskor az összes fogalmat megjegyezni; a nagy képre koncentrálj. Minden későbbi fejezet egy-egy itt bevezetett szempontot fejt ki részletesen, és bármikor visszatérhetsz ehhez a fejezethez, ha újra kell tájékozódnod.
 
 ## Modern ügynök = LLM + Kontextus + Eszközök
 
-Egy modern ügynökrendszer lényege egy tömör képletbe foglalható: **Ügynök = LLM (Nagy nyelvi modell) + Kontextus + Eszközök**. A képlet egyszerű és gyakorlatias – feltéve, hogy minden tagot tágan értelmezünk:
+Egy modern Agent minimális mérnöki megvalósítása egyetlen tömör képlettel kifejezhető: **Agent = LLM (nagy nyelvi modell, Large Language Model) + kontextus + eszközök**. A pluszjelek itt mérnöki komponensek összekapcsolását jelölik, nem a megerősítéses tanulás formális definícióját; és ami még fontosabb, a képlet csak az Agent határán belüli megvalósítást írja le, és **nem tartalmazza az Environmentet (környezetet), amellyel az Agent kölcsönhatásba lép**. Minden szavát tágan, de világos határral kell érteni:
 
-- "Az LLM az ügynök érvelőmotorja": Több, mint paraméterek halmaza; ez az ügynök döntéshozó központja, amely a szándék megértéséért, az érvelésért, a tervezésért és az ítéletalkotásért felelős. Az LLM képességei az "előtanítás" (pre-training) során megszerzett világismeretből és nyelvi készségekből, valamint az "utótanítás" (post-training) során kódolt döntéshozatali stratégiákból származnak (az olyan technikák, mint a felügyelt finomhangolás és a megerősítéses tanulás a 7. fejezetben kerülnek kifejtésre).
-- "A kontextus az ügynök aktuális információhalmaza": Nem csupán a modellbe táplált szöveg, hanem az ügynök számára az egyes döntési pontokon elérhető információhalmaz – a környezet, a felhasználó memóriája, a tartományi tudás, a saját állapota és a feladat előrehaladása. Ahogy egy döntést hozó embernek is fel kell mérnie a helyzetet, emlékeznie kell a releváns tapasztalatokra és konzultálnia kell a forrásokkal, az ügynök kontextusablaka (context window) is az adott pillanatban felhasználható információkat tartalmazza.
-- "Az eszközök az ügynök cselekvési interfészei": Nem csupán néhány meghívható API-függvény, hanem az összes mód, ahogy az ügynök cselekedhet – az előre definiált eszközhívásoktól a menet közben betöltött készségekig (Skills), a kódgenerálástól az új képességek menet közbeni létrehozásán át a feladatok al-ügynököknek delegálásáig, a felhasználó megkeresésétől a külső eseményekre adott válaszig.
+- **Az LLM az ügynök érvelőmotorja**: Több, mint paraméterek halmaza; ez az ügynök döntéshozó központja, amely a szándék megértéséért, az érvelésért, a tervezésért és az ítéletalkotásért felelős. Az LLM képességei az "előtanítás" (pre-training) során megszerzett világismeretből és nyelvi készségekből, valamint az "utótanítás" (post-training) során kódolt döntéshozatali stratégiákból származnak (az olyan technikák, mint a felügyelt finomhangolás és a megerősítéses tanulás a 8. fejezetben kerülnek kifejtésre).
+- **A kontextus az ügynök aktuális információhalmaza**: Nem csupán a modellbe táplált szöveg, hanem az ügynök számára az egyes döntési pontokon elérhető információhalmaz – a környezet, a felhasználó memóriája, a tartományi tudás, a saját állapota és a feladat előrehaladása. Ahogy egy döntést hozó embernek is fel kell mérnie a helyzetet, emlékeznie kell a releváns tapasztalatokra és konzultálnia kell a forrásokkal, az ügynök kontextusablaka (context window) is az adott pillanatban felhasználható információkat tartalmazza.
+- **Az eszközök az ügynök cselekvési interfészei**: Nem csupán néhány meghívható API-függvény, hanem az összes mód, ahogy az ügynök cselekedhet – az előre definiált eszközhívásoktól a menet közben betöltött készségekig (Skills), a kódgenerálástól az új képességek menet közbeni létrehozásán át a feladatok al-ügynököknek delegálásáig, a felhasználó megkeresésétől a külső eseményekre adott válaszig.
 
 Intuitívabban megfogalmazva: **Ügynök = Érvelőmotor + Aktuális információhalmaz + Cselekvési interfészek**. A modell érvel és dönt, a kontextus biztosítja az információhalmazt, amelyre a döntések támaszkodnak, az eszközök pedig azokat az interfészeket nyújtják, amelyeken keresztül a döntések hatással vannak a külvilágra.
 
@@ -26,7 +26,7 @@ Az 1-1. ábra két absztrakciós szintet mutat. A külső szint az **Agent és a
 
 A mérnöki képlet így bontható ki: az LLM a Modellnek felel meg, a Kontextus + Eszközök pedig a minimális Harness-t alkotják; a termelési rendszerek ezen a határon belül korlátozást, ellenőrzést és korrekciót adnak hozzá. A fejezet további része ezt a határt követi.
 
-Ez a három összetevő kapcsolatban áll a megerősítéses tanulás (RL; lásd 7. fejezet) három alapfogalmával, de nem szigorú egy-az-egyben megfeleltetés: a kontextus a megfigyelések és az előzmények Agenten belüli reprezentációja, az eszközök pedig olyan megfigyelési és műveleti interfészeket adnak, amelyek mögöttes objektumai továbbra is a Környezethez tartoznak.
+Ez a három összetevő kapcsolatban áll a megerősítéses tanulás (RL; lásd 8. fejezet) három alapfogalmával, de nem szigorú egy-az-egyben megfeleltetés: a kontextus a megfigyelések és az előzmények Agenten belüli reprezentációja, az eszközök pedig olyan megfigyelési és műveleti interfészeket adnak, amelyek mögöttes objektumai továbbra is a Környezethez tartoznak.
 
 | Intuíció | Ügynök-összetevő | RL fogalom | Szerep |
 |----------|------------------|-------------------------|--------|
@@ -64,25 +64,25 @@ Az eszközök az ügynök hídjai a külvilághoz. Az ügynököt passzív megfi
 
 Az eszközök szisztematikus tárgyalásához öt típusba sorolhatjuk őket aszerint, hogy az ügynök milyen irányban lép interakcióba a világgal. Ebben a szakaszban az egyes típusok reprezentatív forgatókönyveinek rövid áttekintése elég a nagy kép felvázolásához; a későbbi fejezetek mindegyiket részletesen tárgyalják.
 
-"Észlelő eszközök (Perception Tools)" lehetővé teszik az ügynök számára az információk elérését: a keresőmotorok valós idejű webes adatokat, a fájlrendszerek helyi dokumentumokat, az API-k és adatbázisok pedig külső szolgáltatásokat és vállalati alapadatokat szolgáltatnak.
+**Észlelő eszközök (Perception Tools)** lehetővé teszik az ügynök számára az információk elérését: a keresőmotorok valós idejű webes adatokat, a fájlrendszerek helyi dokumentumokat, az API-k és adatbázisok pedig külső szolgáltatásokat és vállalati alapadatokat szolgáltatnak.
 
-"Végrehajtó eszközök (Execution Tools)" lehetővé teszik az ügynök számára, hogy külső rendszerekre hasson: a kódvégrehajtás, a fájlműveletek, a rendszerparancsok és a külső API-hívások a döntéseket konkrét cselekvésekké alakítják.
+**Végrehajtó eszközök (Execution Tools)** lehetővé teszik az ügynök számára, hogy külső rendszerekre hasson: a kódvégrehajtás, a fájlműveletek, a rendszerparancsok és a külső API-hívások a döntéseket konkrét cselekvésekké alakítják.
 
-"Együttműködő eszközök (Collaboration Tools)" lehetővé teszik az ügynök számára a munka megosztását más ügynökökkel: specializált feladatok delegálása al-ügynököknek, emberi megerősítés kérése kulcsfontosságú döntési pontokon, vagy cselekvések összehangolása több ügynökből álló rendszerekben.
+**Együttműködő eszközök (Collaboration Tools)** lehetővé teszik az ügynök számára a munka megosztását más ügynökökkel: specializált feladatok delegálása al-ügynököknek, emberi megerősítés kérése kulcsfontosságú döntési pontokon, vagy cselekvések összehangolása több ügynökből álló rendszerekben.
 
-"Eseményindító eszközök (Event Trigger Tools)" alapvetően más módon kerülnek meghívásra, mint az első három kategória: az ügynök nem hívja őket; külső bemenetként érkeznek, amelyek elindítják az ügynök munkáját. Új e-mail érkezik, beállított időpont elérkezik, vagy egy másik rendszer Webhook-visszahívást küld; az esemény aktiválja az ügynököt, és elindítja az érvelést és a cselekvést. Az ügynök soha nem hívja ezeket maga, mégis csatornát képeznek, amelyen keresztül a külvilággal interakcióba lép, ezért a tágabb eszközrendszer részének tekintjük őket.
+**Eseményindító eszközök (Event Trigger Tools)** alapvetően más módon kerülnek meghívásra, mint az első három kategória: az ügynök nem hívja őket; külső bemenetként érkeznek, amelyek elindítják az ügynök munkáját. Új e-mail érkezik, beállított időpont elérkezik, vagy egy másik rendszer Webhook-visszahívást küld; az esemény aktiválja az ügynököt, és elindítja az érvelést és a cselekvést. Az ügynök soha nem hívja ezeket maga, mégis csatornát képeznek, amelyen keresztül a külvilággal interakcióba lép, ezért a tágabb eszközrendszer részének tekintjük őket.
 
 **Felhasználói kommunikációs eszközök (User Communication Tools)** azok a csatornák, amelyeken keresztül az ügynök kommunikál a felhasználóval. Míg a végrehajtó eszközök megváltoztatják a külvilágot, a kommunikációs eszközök információt hordoznak – az ügynök előrehaladásának vagy egy proaktív bejelentkezésnek a kézbesítése szöveges üzenetben, hanghívásban, e-mailben stb.
 
 A 4. fejezet az öt típus teljes taxonómiáját és tervezési elveit tárgyalja. Az eszköztervezés minősége közvetlenül meghatározza, hogy egy ügynök mit képes megbízhatóan végrehajtani: ha az interfészek homályosak, a modell helytelenül használja őket; ha a hibakezelés gyenge, egyetlen meghibásodott eszköz is beragaszthatja az ügynököt; ha az engedélyek túl tágak, egyetlen ügynökhiba visszafordíthatatlanná válhat. Az MCP (Model Context Protocol) szabvány terjedése megkönnyíti az eszközök integrálását.
 
-"Tool Calling" (más néven Function Calling) a modern LLM-ügynökök egyik alapvető képessége: lehetővé teszi a modell számára, hogy strukturált módon hívjon külső eszközöket, átalakítva az LLM-et tiszta szöveggenerátorból intelligens rendszerré, amely képes külső interfészeken keresztül cselekedni. Ez a könyv végig a "tool calling" kifejezést használja.
+**Tool Calling** (más néven Function Calling) a modern LLM-ügynökök egyik alapvető képessége: lehetővé teszi a modell számára, hogy strukturált módon hívjon külső eszközöket, átalakítva az LLM-et tiszta szöveggenerátorból intelligens rendszerré, amely képes külső interfészeken keresztül cselekedni. Ez a könyv végig a "tool calling" kifejezést használja.
 
 A tool calling négy lépésben zajlik: először a kontextus tájékoztatja a modellt arról, hogy mely eszközök állnak rendelkezésre (nevek, célok, paraméterek); majd a modell saját maga dönti el, hogy hív-e eszközt, melyiket és milyen argumentumokkal; ezután, miután az eszköz lefutott, az eredmény hozzáfűződik a kontextushoz; végül a modell az eredmény alapján dönt a következő lépésről. Ez a ciklus a ReAct alapja, amelyet a fejezet később mutat be.
 
 Egy időjárás-lekérdezés esetén a négy lépéses folyamat API-szintű egyszerűsített reprezentációja a következő:
 
-```
+```text
 1. lépés: Eszközök deklarálása         2. lépés: Modell úgy dönt, meghívja
 tools: [{                              assistant: {
   name: "get_weather",                   tool_calls: [{
@@ -128,25 +128,25 @@ Az előzőekben megjegyeztük, hogy egy modell megerősítéses tanulással inte
 
 ![1-2. ábra: Az ügynökképesség-frissítés három szintje](images/fig1-2.svg)
 
-"Kontextuális adaptáció" az aktuális feladaton belül történik. Miután példák, állapot és visszakeresési eredmények belépnek a kontextusba, a modell azonnal módosíthatja a viselkedését, de ez nem változtatja meg a következő munkamenet állandó állapotát. Előnyei a gyorsaság és az alacsony költség; korlátai a kontextusablakból és az információszervezés módjából adódnak. A 2. fejezet részletesen elmagyarázza, hogyan működik az adaptációnak ez a formája.
+**Kontextuális adaptáció** az aktuális feladaton belül történik. Miután példák, állapot és visszakeresési eredmények belépnek a kontextusba, a modell azonnal módosíthatja a viselkedését, de ez nem változtatja meg a következő munkamenet állandó állapotát. Előnyei a gyorsaság és az alacsony költség; korlátai a kontextusablakból és az információszervezés módjából adódnak. A 2. fejezet részletesen elmagyarázza, hogyan működik az adaptációnak ez a formája.
 
-Ahhoz, hogy a változások feladatokon átívelően fennmaradjanak, a rendszer frissítheti a "külső artefaktumokat": tények és tapasztalatok rendezhetők tudásdokumentumokba, nyelvileg kifejezhető stratégiák írhatók Promptba vagy Skillbe, a determinisztikus eljárások és korlátok pedig programokba és Harness-ekbe kódolhatók. Ezek az artefaktumok naplózhatók és felülvizsgálhatók, de az ügynöknek továbbra is hozzá kell férnie hozzájuk a végrehajtás során a kontextuson vagy az eszközinterfészeken keresztül. A 3–5. fejezetek megalapozzák a tudás és a programok alapjait, míg a 8. fejezet arról szól, hogyan generálhatók ilyen frissítések kiértékelt műveleti trajektóriákból.
+Ahhoz, hogy a változások feladatokon átívelően fennmaradjanak, a rendszer frissítheti a "külső artefaktumokat": tények és tapasztalatok rendezhetők tudásdokumentumokba, nyelvileg kifejezhető stratégiák írhatók Promptba vagy Skillbe, a determinisztikus eljárások és korlátok pedig programokba és Harness-ekbe kódolhatók. Ezek az artefaktumok naplózhatók és felülvizsgálhatók, de az ügynöknek továbbra is hozzá kell férnie hozzájuk a végrehajtás során a kontextuson vagy az eszközinterfészeken keresztül. A 3–5. fejezetek megalapozzák a tudás és a programok alapjait, míg a 9. fejezet arról szól, hogyan generálhatók ilyen frissítések kiértékelt műveleti trajektóriákból.
 
-Amikor a cél egy magas dimenziójú képesség – például orvosi képértelmezés, természetes nyelvi stílus vagy implicit döntési politika –, amelyet külső szabályok nem képesek teljesen kifejezni, a "modell paramétereit" az utótanításon keresztül kell frissíteni. A paraméterfrissítések magasabb telepítési költséggel járnak, de természetes és széles körű általánosítást eredményezhetnek; a 7. fejezet módszereiket mutatja be szisztematikusan. A három útvonal tehát nem egymást kizáró kategória, hanem különböző időskálákon működő, összehangolt mechanizmus: a kontextus az azonnali adaptációt, a külső artefaktumok az ellenőrzött felhalmozást, a paraméterek pedig a nehezen kifejezhető képességek interiorizálását támogatják.
+Amikor a cél egy magas dimenziójú képesség – például orvosi képértelmezés, természetes nyelvi stílus vagy implicit döntési politika –, amelyet külső szabályok nem képesek teljesen kifejezni, a "modell paramétereit" az utótanításon keresztül kell frissíteni. A paraméterfrissítések magasabb telepítési költséggel járnak, de természetes és széles körű általánosítást eredményezhetnek; a 8. fejezet módszereiket mutatja be szisztematikusan. A három útvonal tehát nem egymást kizáró kategória, hanem különböző időskálákon működő, összehangolt mechanizmus: a kontextus az azonnali adaptációt, a külső artefaktumok az ellenőrzött felhalmozást, a paraméterek pedig a nehezen kifejezhető képességek interiorizálását támogatják.
 
 ### Kontextus: Az ügynök aktuális információhalmaza
 
 A kontextus az ügynök számára az egyes döntési pontokon elérhető információhalmaz. Ahogy egy döntést hozó embernek is szüksége van a megfelelő anyagokra az asztalon – feladatutasításokra, referencia-kézikönyvekre, korábbi levelezésekre, a legfrissebb adatokra –, az ügynök kontextusablaka az az információ, amelyet felhasználhat. Az API szemszögéből (részletesen a 2. fejezetben) az egyes LLM-hívások kontextusa öt részből áll:
 
-- "System Prompt": Ellentétben a felhasználók által beszélgetés közben bevitt utasításokkal, a system promptot a fejlesztő írja, és a teljes beszélgetés során rögzített marad. Ez az ügynök "munkaköri leírása" – meghatározza az identitását, az engedélyeit és a magatartási szabályait. A system prompt gondos Prompt Engineering-je alakítja az ügynök működési viselkedését. A system prompt hordozza a munkameneteken átívelő "felhasználói memóriát" is (személyre szabott információkat, mint preferenciák, korábbi viselkedés és háttérbeállítások; lásd a 3. fejezetet), valamint a dinamikusan injektált környezeti állapotot.
-- "Eszközdefiníciók (Tool Definitions)": Deklarálják az ügynök számára elérhető eszközök nevét, funkcionális leírását és paraméterformátumait. Eszközdefiníciók nélkül az ügynök nem ismer fel és nem hívhat semmilyen eszközt – ezt egy abláció (kiirtásos) vizsgálat (1-1. kísérlet) ellenőrizni fogja. Az eszközdefiníciók a system prompttal együtt alkotják a "statikus előtagot" (static prefix), amely a beszélgetés során változatlan marad. (Ez az alapminta; 2026 óta a termelési keretrendszerek igény szerint is betölthetnek teljes eszköz-sémákat a kontextus végén anélkül, hogy megtörnék az előtagot – lásd a 2. fejezet és a 4. fejezet eszközdefiníciós szakaszait.)
-- "Felhasználói üzenetek (User Messages)": Bemenet a felhasználótól. A felhasználói üzenetek tartalmazhatnak "külső tudást" is, amelyet dinamikusan, RAG (Retrieval-Augmented Generation, lásd a 3. fejezetet) segítségével keresünk vissza – lefedve a tréningadatok vágási időpontján túli információkat vagy privát tartományi tudást.
-- "Asszisztens üzenetek (Assistant Messages)": A modell által korábban generált válaszok, amelyek legfeljebb három részt tartalmazhatnak – `reasoning` (a belső gondolatmenet, amely fenntartja a koherenciát és a döntések értelmezhetőségét), `content` (a válasz a felhasználónak) és `tool_calls` (ahogy az ügynök cselekszik). Egy adott válaszban ez a három rész nem feltétlenül jelenik meg egyszerre: például amikor az ügynök úgy dönt, hogy eszközt hív, általában csak `reasoning` + `tool_calls` van; amikor végső választ ad, általában csak `reasoning` + `content`.
-- "Eszközeredmények (Tool Results)": Az a kimenet, amelyet az ügynökkeretrendszer az eszköz végrehajtása után visszaad. Ezek az eredmények képezik az ügynök következő érvelési lépésének közvetlen alapját – és teszik lehetővé, hogy tanuljon az eredményekből ahelyett, hogy ismételné a hibáit.
+- **System Prompt**: Ellentétben a felhasználók által beszélgetés közben bevitt utasításokkal, a system promptot a fejlesztő írja, és a teljes beszélgetés során rögzített marad. Ez az ügynök "munkaköri leírása" – meghatározza az identitását, az engedélyeit és a magatartási szabályait. A system prompt gondos Prompt Engineering-je alakítja az ügynök működési viselkedését. A system prompt hordozza a munkameneteken átívelő "felhasználói memóriát" is (személyre szabott információkat, mint preferenciák, korábbi viselkedés és háttérbeállítások; lásd a 3. fejezetet), valamint a dinamikusan injektált környezeti állapotot.
+- **Eszközdefiníciók (Tool Definitions)**: Deklarálják az ügynök számára elérhető eszközök nevét, funkcionális leírását és paraméterformátumait. Eszközdefiníciók nélkül az ügynök nem ismer fel és nem hívhat semmilyen eszközt – de nem is hallgat el emiatt; egy abláció (kiirtásos) vizsgálat (1-1. kísérlet) megmutatja, mit tesz helyette. Az eszközdefiníciók a system prompttal együtt alkotják a "statikus előtagot" (static prefix), amely a beszélgetés során változatlan marad. (Ez az alapminta; 2026 óta a termelési keretrendszerek igény szerint is betölthetnek teljes eszköz-sémákat a kontextus végén anélkül, hogy megtörnék az előtagot – lásd a 2. fejezet és a 4. fejezet eszközdefiníciós szakaszait.)
+- **Felhasználói üzenetek (User Messages)**: Bemenet a felhasználótól. A felhasználói üzenetek tartalmazhatnak "külső tudást" is, amelyet dinamikusan, RAG (Retrieval-Augmented Generation, lásd a 3. fejezetet) segítségével keresünk vissza – lefedve a tréningadatok vágási időpontján túli információkat vagy privát tartományi tudást.
+- **Asszisztens üzenetek (Assistant Messages)**: A modell által korábban generált válaszok, amelyek legfeljebb három részt tartalmazhatnak – `reasoning` (a belső gondolatmenet, amely fenntartja a koherenciát és a döntések értelmezhetőségét), `content` (a válasz a felhasználónak) és `tool_calls` (ahogy az ügynök cselekszik). Egy adott válaszban ez a három rész nem feltétlenül jelenik meg egyszerre: például amikor az ügynök úgy dönt, hogy eszközt hív, általában csak `reasoning` + `tool_calls` van; amikor végső választ ad, általában csak `reasoning` + `content`.
+- **Eszközeredmények (Tool Results)**: Az a kimenet, amelyet az ügynökkeretrendszer az eszköz végrehajtása után visszaad. Ezek az eredmények képezik az ügynök következő érvelési lépésének közvetlen alapját – és teszik lehetővé, hogy tanuljon az eredményekből ahelyett, hogy ismételné a hibáit.
 
 Az első két elem (system prompt + eszközdefiníciók) alkotja a statikus előtagot; az utolsó három (felhasználói üzenetek + asszisztens üzenetek + eszközeredmények) alkotja a dinamikus üzenetelőzményt, amely minden interakcióval növekszik. Ez az öt rész együtt teszi ki az egyes LLM-következtetések kontextusát.
 
-Valóban minden összetevő nélkülözhetetlen? A legközvetlenebb módja ennek kiderítésére egy "ablációs vizsgálat" (ablation study) – a diagnosztikai módszer, amely egyszerre csak egy okot zár ki: távolítsuk el az A összetevőt, és nézzük meg, hogy a rendszer még mindig működik-e, majd a B összetevőt, és így tovább, amíg az egyes összetevők hozzájárulása világossá nem válik. Az 1-1. kísérlet pontosan ezt a módszert alkalmazza a fenti öt összetevőre. Az eredmények közvetlenek: eszközdefiníciók nélkül az ügynök teljesen cselekvésképtelen; eszközeredmények nélkül nem kap visszajelzést az előző lépésről, ezért ugyanazt az eszközt hívja újra és újra, végtelen ciklusba ragadva; az asszisztens üzenetek érvelés nélkül az egymást követő döntések ellentmondani kezdenek egymásnak; üzenetelőzmény nélkül az ügynök elveszíti a feladat folytonosságát, és a legelejéről kezdi újra az egész feladatot, megismételve a már elvégzett lépéseket.
+Annak ellenőrzésére, hogy minden komponens valóban nélkülözhetetlen-e, a legközvetlenebb módszer az **ablációs vizsgálat** (Ablation Study): ahogy az orvos a diagnózis során egyenként zárja ki az okokat — először elvesszük az A komponenst, és megnézzük, működik-e még a rendszer, aztán a B komponenst, és így tovább, hogy megítélhessük az egyes komponensek hozzájárulását. Az 1-1. kísérlet pontosan ezt a gondolatmenetet követve tesztelte rendszeresen a fenti öt komponenst.
 
 > **1-1. kísérlet ★★: A kontextus kritikus szerepe**
 >
@@ -154,9 +154,9 @@ Valóban minden összetevő nélkülözhetetlen? A legközvetlenebb módja ennek
 >
 > ![1-3. ábra: 1-1. kísérlet – Kontextus abláció vizsgálati elrendezés](images/fig1-3.svg)
 >
-> A kísérleti eredmények feltárták az egyes kontextus-összetevők pótolhatatlan szerepét. Az "eszközdefiníciók" (a statikus előtag részei) az ügynök cselekvési képességének alapjai; nélkülük az ügynök nem ismer fel és nem hívhat semmilyen eszközt. Az "eszközeredmények" kulcsfontosságúak a zárt hurkú vezérléshez; hiányuk megfosztja az ügynököt a végrehajtási visszajelzéstől, és végtelen ciklusba taszítja. Az "érvelési folyamat" (az asszisztens üzenetek reasoning része) megőrzi az ügynök korábbi döntéseinek indokait, koherensebbé téve a teljes érvelést és megelőzve az ellentmondó döntéseket. Az "üzenetelőzmény" (korábbi körök felhasználói üzenetei, asszisztens üzenetei és eszközeredményei) megakadályozza a redundáns műveleteket, fenntartja a feladatvégrehajtás koherenciáját, és elkerüli ugyanazon hibák megismétlését.
+> A kísérleti eredmények feltárták az egyes kontextus-összetevők szerepét – és azt is, hogy nem egyformán fontosak. Az "eszközdefiníciók" (a statikus előtag részei) az ügynök cselekvési képességének alapjai; nélkülük az ügynök semmilyen eszközt nem hívhat meg. A cselekvőképesség elvesztése azonban nem jelent elnémulást: a modell továbbra is szépen formázott, magabiztos hangvételű választ ad, csakhogy a benne szereplő számok nem megfigyelésekből, hanem a paraméteres memóriából származnak, és pontosan úgy néznek ki, mint egy valóban eszközkimenetből levezetett válasz. Hogy nyíltan visszautasít-e vagy helyben kitalálja, az elsősorban a modell saját hallucinációs arányán és őszinteségén múlik; a promptba írt olyan megkötés, hogy "ne becsüld meg magad az árfolyamokat", csak csökkenti a kitalálás esélyét, de nem szünteti meg. Az "eszközeredmények" kulcsfontosságúak a zárt hurkú vezérléshez; nélkülük az ügynök "vakon" hajt végre, és addig próbálkozik újra, amíg el nem fogy az iterációs kerete. Az "érvelési folyamat" (az asszisztens üzenetek reasoning része) azt rögzíti, *miért* történt egy lépés, az eszközeredmények pedig azt, *mi történt*; ha az előbbi visszaállítható az utóbbiból, akkor szinte semmibe nem kerül elhagyni az előzményekből. Az "üzenetelőzmény" (korábbi körök felhasználói üzenetei, asszisztens üzenetei és eszközeredményei) megakadályozza a redundáns műveleteket, és elkerüli ugyanazon hibák megismétlését.
 >
-> A kísérlet központi felismerése: **a kontextus határozza meg, hogy az ügynök milyen információval rendelkezik a döntés pillanatában, és az ügynök csak ezen információk alapján dönthet**. Ahogy egy ember sem hozhat megalapozott döntéseket kulcsfontosságú dokumentumok hiányában, az ügynök is súlyos döntéshozatali képességromlást szenved el bármely kontextus-összetevő hiányában – eszközdefiníciók nélkül nem tudja, milyen eszközök léteznek; korábbi végrehajtási eredmények nélkül nem tudja, mi történt már.
+> A kísérlet központi felismerése: **a kontextus határozza meg, hogy az ügynök mit láthat, és az ügynök csak a látottak alapján dönthet**. Az összetevők azonban nem egyenértékűek; a mérce az, hogy az általuk hordozott információ visszaállítható-e máshonnan – az olyan állításokat, hogy "minden összetevő nélkülözhetetlen", mérni kell, nem feltételezni, és a modellek elég gyorsan váltják egymást ahhoz, hogy ugyanaz az abláció egy újabb modellen akár más következtetésre is jusson. Egy további szempont a mérnöki gyakorlatban még fontosabb: **a "választ adott" nem azonos azzal, hogy "elvégezte a feladatot"**. Ha hiányzik egy kontextus-összetevő, a jellemző hiba nem hibával való kilépés, hanem egy hibátlannak látszó válasz.
 
 ### A ReAct ciklus
 
@@ -168,9 +168,28 @@ Vegyünk egy konkrét példát – a bevételek összesítését több devizába
 
 ![1-4. ábra: Ügynök trajektória – ReAct ciklus egy többdevizás összesítési feladathoz](images/fig1-4.svg)
 
+Nézzük először a minimális futtatási vázat. Azt mutatja meg, **hogyan működik a mechanizmus**: a Model csak a következő lépésről dönt, a Harness összeállítja a kontextust, ellenőrzi és végrehajtja az eszközöket, az Environment pedig előállítja a valódi állapotváltozásokat és megfigyeléseket. A könyv további részében is Python-stílusú álkódot használunk; az álkód nem futtatható közvetlenül, és nem felel meg egyetlen konkrét SDK-nak sem. A konkrét, futtatható kód a könyv kísérő kódtárában található.
+
+```python
+trajectory = [user_request]
+
+repeat:
+    context = stable_prefix + trajectory
+    decision = Model(context)
+    trajectory.append(decision)
+
+    if decision has no tool call:
+        return decision.answer
+
+    for call in decision.tool_calls:       # independent calls may run in parallel
+        validated_call = Harness.validate(call)
+        observation = Environment.execute(validated_call)
+        trajectory.append(observation)
+```
+
 Itt látható egy trajektória szerkezete pszeudokódban:
 
-```
+```text
 trajectory = [
   {role: "user", content: "A vállalat negyedéves bevételei alapján: Q1 2,5M USD, Q2 2,1M EUR, Q3 1,8M GBP, Q4 380M JPY, számítsd ki a vállalat teljes éves bevételét és az átlagos negyedéves bevételt"},
 
@@ -212,8 +231,6 @@ A kísérletünkben ez a ciklus jól látható volt. Az első körben az ügynö
 
 Ebben a legalapvetőbb kialakításban az LLM által látott kontextus folyamatosan bővül. Minden egyes LLM-hívás megkapja a teljes trajektóriát, így a modell tudja, hogy a feladat mely szakaszában jár, mit próbált ki korábban, és mi lett az eredmény. Ahogy az emberek is folyamatosan áttekintik és összegzik a problémák megoldása során, az ügynök is egy globális képet tart fenn a feladatról a trajektóriáján keresztül. És mivel a trajektória strukturált – a felhasználói üzenetek, az asszisztens üzenetek (érvelés + eszközhívások) és az eszközeredmények mind tisztán elkülönülnek –, a rendszer jól értelmezhető és hibakereshető.
 
-A trajektória több, mint egy végrehajtási rekord; az ügynök képességének bizonyítéka. A trajektóriák nagy léptékű elemzése feltárja a viselkedésmintákat, a jobb döntési útvonalakat és a jobb eszközterveket. A trajektóriaadatok akár tudásbázisba desztillálhatók, vagy megerősítéses tanulással erősebb ügynökmodellek képzésére használhatók – bezárva a tapasztalatból való tanulás körét.
-
 Most, hogy megértettük az ügynök működési ciklusát, két kísérletet vizsgálunk meg, hogy lássuk, a különböző modellek hogyan vezérlik azt.
 
 > **1-2. kísérlet ★: Kimi K3 natív ügynökképesség**
@@ -225,7 +242,7 @@ Most, hogy megértettük az ügynök működési ciklusát, két kísérletet vi
 > [^ch1-2]: Köszönet az asdlem olvasónak, amiért a GitHub Issue #30-on keresztül rámutatott és tisztázta, hogy az RL által interiorizált dolog az eszközhívási döntési politika, nem az eszköz-végrehajtási mechanizmus. Lásd: https://github.com/bojieli/ai-agent-book/issues/30
 >
 > A Kimi K3 figyelemre méltó előnye az ügynökfeladatokban "a hosszú láncú eszközhívások stabilitása" – 200–300 egymást követő eszközhívást képes fenntartani koherens érveléssel, messze meghaladva azt a néhány tucat hívást, amelynél a legtöbb modell romlani kezd. A K3-at hosszú távú programozási és ügynök-munkaterhelésekre optimalizálták, és két változatban jelent meg: K3 Max (dialógus- és ügynökfeladatokhoz) és K3 Swarm Max (nagyméretű párhuzamos feldolgozáshoz). Nyílt forráskódú modellként felülmúlja a legjobb zárt forráskódú rendszereket szoftvermérnöki és ügynökmérési feladatokon – bizonyítva, hogy a megerősítéses tanulás natív ügynökképességgel ruházhat fel egy modellt.
-
+>
 > **1-3. kísérlet ★: GPT-5.6 natív Deep Research képesség**
 >
 > A második kísérlet az "OpenAI GPT-5.6"-ot használja annak bemutatására, hogy egy fejlett modell, API-szintű beépített eszközökkel támogatva, hogyan zárja le a "keresés → olvasás → elemzés" összehangolási ciklust szerveroldalon a Deep Research számára. A GPT-5.6 egyik kényelmes funkciója a "Freeform Tool Calling". Hagyományosan a modellnek minden paramétert szigorú JSON-ba (strukturált adatformátum) kellett szerializálnia egy eszköz hívásakor, hasonlóan egy merev formázási szabályokkal rendelkező űrlap kitöltéséhez. A Freeform tool calling (amelyet az API-ban egy `type: "custom"` típusú eszközön keresztül deklarálnak) lehetővé teszi a modell számára, hogy nyers szöveget küldjön közvetlenül az eszköznek (egy Python kódrészletet, egy SQL lekérdezést), teljesen elkerülve a JSON escape-elést. Érdemes hangsúlyozni, hogy ez az API paraméterformátumának fejlődése, nem pedig modellarchitektúra-innováció – a kliens eszközhívási ciklusa (`tool_calls` észlelése → végrehajtás → eredmény visszaadása) ugyanaz marad; csak az argumentumok változnak JSON stringről nyers szövegre.
@@ -256,23 +273,35 @@ Kibontva egyenletként, a teljes éles üzemi összetétel:
 >
 > **Ügynök ↔ Környezet**
 
-Egy minimálisan működő ügynök csak LLM-ből, kontextusból és eszközökből áll. Ahhoz, hogy hosszú futású éles munkaterhelésekben megbízhatóan működjön, a három külső mérnöki rétegre is szükség van – korlátozás a túlkapások megelőzésére, ellenőrzés a hibák észlelésére, javítás a hibákból való felépülésre. Másképpen fogalmazva: a minimális képlet a demó nézet, a kibővített képlet az éles üzemi nézet – az utóbbi teljes egészében tartalmazza az előbbit, és egy biztonsági hálót ad hozzá.
-
-Egy példa tisztázza a határokat: a visszatérítési szabályzat beágyazása a kontextusba a "Kontextus" alá tartozik, míg annak ellenőrzése, hogy a visszatérítés összege nem haladja meg a rendelés összértékét, a "Korlátozás" alá. Egy API-hívás végrehajtása az "Eszközök" alá tartozik, míg az automatikus újrapróbálkozás az API időtúllépése után a "Javítás" alá. A modell szolgáltatja az alapvető megértést és érvelést; a Harness irányítja, korlátozza és erősíti ezeket a képességeket megbízható feladatvégrehajtássá. A tervezés és optimalizálás mérnöki gyakorlatát a modellen kívüli infrastruktúra számára "Harness Engineering"-nek nevezzük.
-
-Egy konkrét példa mutatja a Harness értékét. Tegyük fel, hogy megkéred az ügynököt, hogy térítse vissza egy felhasználó 3 nappal ezelőtti rendelését. "Harness nélkül": a modell nem kapja meg a visszatérítési szabályzatot (nincs kontextus), nem tudja, melyik API-t hívja (nincsenek eszközök), kitalál egy visszatérítési eredményt a felhasználónak (nincs ellenőrzés), és a felhasználó rájön, hogy a visszatérítés soha nem történt meg (nincs javítás). "Harness-szel": a system prompt meghatározza a 7 napos visszatérítési szabályzatot (kontextus), az ügynök meghívja a `query_order` és `process_refund` eszközöket a művelet végrehajtásához (eszközök), a keretrendszer ellenőrzi, hogy a visszatérítés nem haladja meg a rendelés összértékét (korlátozás), megerősíti az adatbázisban, hogy a visszatérítés megtörtént (ellenőrzés), és automatikusan újrapróbálkozik, ha az API-hívás időtúllépés miatt meghiúsul (javítás). Ugyanaz a modell, jelentősen eltérő eredmények.
-
-Röviden: egy modell Harness nélkül lehet nagyon képzett, de hiányoznak belőle a megbízható feladatvégrehajtáshoz szükséges környező vezérlőelemek.
+Egy minimális demóhoz elég a Modell és egy Harness, amely kontextust épít és eszközöket tesz elérhetővé; egy éles rendszernek ugyanezen a határon belül korlátozásra, ellenőrzésre és javításra is szüksége van. Egy visszatérítési ügynök például a szabályzatot a kontextusba teheti, jogosultsági és összegkorlátokkal szabályozhatja a hívásokat, az adatbázis állapotán ellenőrizheti az eredményt, időtúllépéskor pedig újrapróbálkozhat vagy tartalék útra térhet. A Harness engineering pontosan ezt, a modellen kívüli, de a környezeten belüli futtatási és irányítási kódot vizsgálja.
 
 Pontosabban: a Harness nem minden, ami a modellen kívül található, hanem az **Agent határain belüli, a Modellen kívüli** futtatási és irányítási réteg. A Modell és a Környezet interakcióját közvetíti, de magát a Környezetet nem tartalmazza. Az eszközdefiníciók, a hívásadapterek, valamint a sandbox jogosultság- és visszaállítási mechanizmusai a Harness részei; a sandboxban változó fájlok és folyamatok, a külső adatbázisok, weboldalak, felhasználók és a fizikai világ a Környezethez tartoznak. A telepítés helye nem módosítja ezt a fogalmi határt. A Harness magja a kontextuskezelés és az eszközinterfészek, amelyek köré háromféle mérnöki védelmi mechanizmus épül:
 
-| Funkció | Egymondatos felelősség | Kapcsolat a Kontextussal/Eszközökkel |
-|---------|------------------------|--------------------------------------|
-| "Kontextus" | Releváns információkat biztosít a modellnek | Alapképesség |
-| "Eszközök" | Cselekvési interfészeket biztosít a modellnek | Alapképesség |
-| "Korlátozás" | Viselkedési határokat szab meg – mit szabad és mit nem | Kontextus és eszközök köré épített biztonsági határ |
-| "Ellenőrzés" | Automatikusan megítéli az eszköz-végrehajtási eredmények helyességét | Eszköz-végrehajtási eredmények köré épített ellenőrző mechanizmus |
-| "Javítás" | Automatikusan helyreállít vagy visszaállít, ha problémát talál | Eszközhívási hibák köré épített helyreállítási mechanizmus |
+| Funkció | Egymondatos felelősség / Alapelv | Gyakorlati példa | Lásd a fejezetet |
+|---|---|---|---|
+| "Kontextus" | Releváns információkat biztosít a modellnek; Információs teljesség: Biztosítsd, hogy az ügynök minden döntési ponton elegendő információ alapján döntsön | System promptok, tudásbázisok, ügynökállapot-sávok, Sidecar bypass lekérdezések | 2. és 3. fejezet |
+| "Eszközök" | Cselekvési interfészeket biztosít a modellnek; Tiszta interfész: Az eszköznevek intuitívak, a paraméterek példákkal ellátottak, a határok magyarázottak | MCP eszközök, kódértelmező, keresőeszközök | 4. fejezet |
+| "Korlátozás" | Viselkedési határokat szab meg – mit szabad és mit nem; Hibatűrő alapértelmezések: Minden képesség alapértelmezés szerint ki van kapcsolva, és kifejezetten engedélyezni kell (hasonlóan a mobilalkalmazás-engedélykezeléshez) | Claude Code-ban minden eszköz alapértelmezés szerint felhasználói engedélyt igényel a végrehajtás előtt | 4. fejezet |
+| "Ellenőrzés" | Automatikusan megítéli az eszköz-végrehajtási eredmények helyességét; Bemeneti elkülönítés: A biztonsági ellenőrzések csak strukturált adatokat vizsgálnak (pl. az eszközök által visszaadott JSON mezőket), nem a modell által generált szabad formátumú szöveget (mert a támadók prompt injection segítségével manipulálhatják a modell kimenetét) | Linter-ellenőrzések, típusrendszerek, eszközhívási eredmények validálása | 5. és 7. fejezet |
+| "Javítás" | Automatikusan helyreállít vagy visszaállít, ha problémát talál; Ne tegyél ki köztes állapotokat, amíg a hiba visszafordíthatatlannak nem bizonyul (pl. némán próbáld újra a meghiúsult eszközhívást ahelyett, hogy egy félkész eredményt mutatnál a felhasználónak) | Csendes újrapróbálkozások, folytatásgenerálás, emberi ítéletre hagyatkozás egymást követő hibák esetén (megszakító mechanizmus) | 2. és 5. fejezet |
+
+A modell vezérlési ciklusának alapfolyamatát az alábbi pszeudokód mutatja:
+
+```python
+observation = Environment.observe()
+trajectory = [observation]
+while true:
+	actions = Model(Harness.build_context(trajectory))
+	if len(actions) == 0:
+		break
+	allowed_actions = Harness.constrain(actions)
+	observation = Environment.apply(allowed_actions)
+	if not Harness.verify(Environment):
+		observation = Harness.correct(Environment)
+	trajectory.append(allowed_actions, observation)
+```
+
+Ez a váz szándékosan elhagyja a megvalósítás részleteit. A teljes API-üzenetciklus a 2. fejezetben található; az eszközöket és az automatikus ellenőrzést a 4., illetve az 5. fejezet tárgyalja.
 
 A Kontextus és az Eszközök lehetővé teszik az ügynök számára a feladatok elvégzését – a feladat megértését és a cselekvést. A Korlátozás, Ellenőrzés és Javítás biztosítja, hogy ezt megbízhatóan és biztonságosan tegye – nem a Kontextustól és Eszközöktől elkülönülve, hanem annak a mérnöki munkának a részeként, amely megbízhatóan működteti őket éles üzemben. Az ügynöktermékek érettségi görbéje mentén a hangsúly e két csoport között eltolódik.
 
@@ -280,11 +309,11 @@ A korai ügynökkeretrendszerek a Kontextusra és Eszközökre összpontosított
 
 Vegyük a Claude Code-ot. A Harness kódjának túlnyomó többsége Korlátozást, Ellenőrzést és Javítást végez, nem Kontextust és Eszközöket – maguk az eszközök (fájl olvasás/írás, parancsvégrehajtás, keresés) csak egy kis részt képviselnek; a köréjük épített védelmi mechanizmusok a valódi mag. Ezek a mechanizmusok a következőket foglalják magukban:
 
-- "Folyamatállapot-kezelés (Process State Management)": Nyomon követi, hogy az ügynök éppen melyik lépést hajtja végre
+- **Folyamatállapot-kezelés (Process State Management)**: Nyomon követi, hogy az ügynök éppen melyik lépést hajtja végre
 - **Többrétegű kontextus-tömörítés (Multi-Layer Context Compression)**: Automatikusan ritkítja az információt, ha túl sok van belőle
-- "Engedélybesorolás (Permission Classification)": Szabályozza, hogy mely műveletek igényelnek felhasználói megerősítést
-- "Megszakító (Circuit Breaker)": Automatikusan leállítja az újrapróbálkozásokat ismételt hibák után, hogy egy meghibásodott művelet ne kaszkáddjon át az egész rendszeren
-- "Hibakezelési mechanizmusok (Error Recovery Mechanisms)": Kivételek elkapása, visszaállás az utolsó stabil állapotba, újrapróbálkozás, vagy átadás egy emberi kezelőnek
+- **Engedélybesorolás (Permission Classification)**: Szabályozza, hogy mely műveletek igényelnek felhasználói megerősítést
+- **Megszakító (Circuit Breaker)**: Automatikusan leállítja az újrapróbálkozásokat ismételt hibák után, hogy egy meghibásodott művelet ne kaszkáddjon át az egész rendszeren
+- **Hibakezelési mechanizmusok (Error Recovery Mechanisms)**: Kivételek elkapása, visszaállás az utolsó stabil állapotba, újrapróbálkozás, vagy átadás egy emberi kezelőnek
 
 **Az iparág a feladatvégrehajtásról a megbízható feladatvégrehajtásra vált, így a Harness Engineering válik az ügynökrendszerek központi versenyelőnyévé.**
 
@@ -308,27 +337,13 @@ Ez az öt szakasz nem helyettesítő, hanem egymásba ágyazott rétegek: a Prom
 
 A közelmúlt mérnöki gyakorlata alátámasztja ezt a nézetet. A LangChain munkája a Terminal Bench 2.0-n – amely azt méri, hogyan teljesít egy ügynök összetett terminálfeladatokon – szembetűnő példa: a Kódoló Ügynökük 52,8%-ról 66,5%-ra javult, és a ranglista első harminc helyén kívülről az első ötbe ugrott. Nem a modell változott, hanem a Harness: az ügynök ellenőrizte saját végrehajtási eredményeit, felismerte, ha ismétlődő ciklusba ragadt, és finomította érvelési stratégiáját.
 
-### Az öt Harness-funkció alapelvei
-
-A korábbi táblázat felsorolta a Harness öt funkcióját. Az alábbi táblázat mindegyik funkcióhoz hozzáadja a központi tervezési elvet és azt, hogy a könyv hol tárgyalja, fogalmat gyakorlathoz rendelve:
-
-| Funkció | Alapelv | Gyakorlati példa | Lásd a fejezetet |
-|---------|---------|------------------|------------------|
-| "Kontextus" | Információs teljesség: Biztosítsd, hogy az ügynök minden döntési ponton elegendő információ alapján döntsön | System promptok, tudásbázisok, ügynökállapot-sávok, Sidecar bypass lekérdezések | 2. és 3. fejezet |
-| "Eszközök" | Tiszta interfész: Az eszköznevek intuitívak, a paraméterek példákkal ellátottak, a határok magyarázottak | MCP eszközök, kódértelmező, keresőeszközök | 4. fejezet |
-| "Korlátozás" | Hibatűrő alapértelmezések: Minden képesség alapértelmezés szerint ki van kapcsolva, és kifejezetten engedélyezni kell (hasonlóan a mobilalkalmazás-engedélykezeléshez) | Claude Code-ban minden eszköz alapértelmezés szerint felhasználói engedélyt igényel a végrehajtás előtt | 4. fejezet |
-| "Ellenőrzés" | Bemeneti elkülönítés: A biztonsági ellenőrzések csak strukturált adatokat vizsgálnak (pl. az eszközök által visszaadott JSON mezőket), nem a modell által generált szabad formátumú szöveget (mert a támadók prompt injection segítségével manipulálhatják a modell kimenetét) | Linter-ellenőrzések, típusrendszerek, eszközhívási eredmények validálása | 5. és 6. fejezet |
-| "Javítás" | Ne tegyél ki köztes állapotokat, amíg a hiba visszafordíthatatlannak nem bizonyul (pl. némán próbáld újra a meghiúsult eszközhívást ahelyett, hogy egy félkész eredményt mutatnál a felhasználónak) | Csendes újrapróbálkozások, folytatásgenerálás, emberi ítéletre hagyatkozás egymást követő hibák esetén (megszakító mechanizmus) | 2. és 5. fejezet |
-
-Az öt funkció zárt hurkot alkot: a Kontextus és az Eszközök támogatják a döntéshozatalt, a Korlátozás megelőzi a hibákat, az Ellenőrzés észleli az eltéréseket, a Javítás pedig lezárja a ciklust. Ha bármelyik láncszem hiányzik, a rendszerben megbízhatósági rés keletkezik. Mielőtt megvizsgálnánk a konkrét összehangolási mintákat és védőkorlát-terveket, először lefektetjük a hatékony ügynökök építésének alapelveit és a modellválasztás alapjait – minden ezt követő tervezési döntés alapját.
-
 ### A hatékony ügynökök építésének alapelvei
 
 Az Anthropic tapasztalatai alapján a sikeres ügynökrendszerek három alapelvet követnek.
 
-"Legyen egyszerű." Kezdd a legegyszerűbb megoldással, és csak akkor adj hozzá bonyolultságot, ha valóban szükséges. A közvetlen API-hívások előnyösebbek az összetett keretrendszerekkel szemben; a tiszta kód jobb, mint a ravasz absztrakció – minden extra absztrakciós réteg új vakfolt a hibakeresés során.
+**Legyen egyszerű.** Kezdd a legegyszerűbb megoldással, és csak akkor adj hozzá bonyolultságot, ha valóban szükséges. A közvetlen API-hívások előnyösebbek az összetett keretrendszerekkel szemben; a tiszta kód jobb, mint a ravasz absztrakció – minden extra absztrakciós réteg új vakfolt a hibakeresés során.
 
-"Legyen átlátható." Mutasd meg az ügynök tervezési lépéseit, végrehajtási naplóit és döntési trajektóriáját világosan. Ez nemcsak a hibakeresés kényelme; előfeltétele a felhasználói bizalomnak – egy fekete doboz belsejében lévő hibát nehéz megtalálni vagy kívülről kijavítani.
+**Legyen átlátható.** Mutasd meg az ügynök tervezési lépéseit, végrehajtási naplóit és döntési trajektóriáját világosan. Ez nemcsak a hibakeresés kényelme; előfeltétele a felhasználói bizalomnak – egy fekete doboz belsejében lévő hibát nehéz megtalálni vagy kívülről kijavítani.
 
 **Tervezz jól strukturált eszközinterfészt (ACI, Agent-Computer Interface).** Az ACI azt jelenti, hogy az interfészt az ügynök szemszögéből tervezzük – könnyen érthető és használható legyen az ügynök számára –, nem a programozó szemszögéből, mint a hagyományos API-knál. Az eszközök nevei és paraméterei legyenek intuitívak, és ahol valószínű a helytelen használat, a tervezés tegye lehetetlenné a hibát már a kezdetektől: egy SIM-kártya bemetszett sarka csak egy irányban engedi a tálcába csúsztatni, és a mikrohullámú sütő nem hajlandó működni, amíg az ajtaja nyitva van. A gyártásban ezt a "hibák kitervezésének" filozófiáját "Poka-yoke"-nak hívják, ami a Toyota Termelési Rendszerből származik. Egy rosszul megtervezett eszköz még a legerősebb modellt is ismételt kudarcra késztetheti: az interfész az egyetlen csatorna a modell és az eszköz között, és egy homályos interfész szisztémás hibává erősödik fel.
 
@@ -340,7 +355,7 @@ Mielőtt az összehangolási mintákról beszélnénk, először egy gyakorlati 
 
 A modell az ügynök intelligenciájának alapja, és a megfelelő kiválasztása gyakran fontosabb, mint bármennyi prompt-hangolás. A modellkiadások túl gyorsan változnak ahhoz, hogy a konkrét verzióajánlások hasznosak maradjanak, ezért ez a rész irányokat ad.
 
-**Zárt modellek.** A jelenlegi ügynökfejlesztésben leggyakrabban használt két zárt modellszolgáltató az OpenAI (GPT/o sorozat) és az Anthropic (Claude sorozat). A zárt modellek képességei rendszerint előrébb járnak, de drágábbak, és a szolgáltató API-szabályzatai korlátozzák őket. A modell kiválasztásakor ne hagyatkozz kizárólag a rangsorokra; **értékeld a saját feladataidon** (lásd a 6. fejezetet).
+**Zárt modellek.** A jelenlegi ügynökfejlesztésben leggyakrabban használt két zárt modellszolgáltató az OpenAI (GPT/o sorozat) és az Anthropic (Claude sorozat). A zárt modellek képességei rendszerint előrébb járnak, de drágábbak, és a szolgáltató API-szabályzatai korlátozzák őket. A modell kiválasztásakor ne hagyatkozz kizárólag a rangsorokra; **értékeld a saját feladataidon** (lásd a 7. fejezetet).
 
 **Nyílt modellek.** A könyv írásakor a nyílt és zárt modellek közötti lemaradás hat hónapon belüli, miközben a nyílt modellek költsége lényegesen alacsonyabb. Ha az üzleti feladat nem igényli a lehető legnagyobb modellképességet, egy nyílt modell pragmatikus választás. Olcsó, privát környezetben telepíthető és finomhangolható, ezért jól illik a költségérzékeny vagy adatmegfelelőséget igénylő esetekhez. A DeepSeek, a Kimi és a GLM az erősebb kínai ügynökmodellek közé tartozik. Az eszközhívási képesség ugyanakkor modellenként erősen eltér, ezért a döntés előtt mindig tesztelj a saját forgatókönyvedben.
 
@@ -354,7 +369,13 @@ A modell az ügynök intelligenciájának alapja, és a megfelelő kiválasztás
 
 Az összehangolási minták (orchestration patterns) határozzák meg, hogy a Harness hogyan szervezi a "kontextus és eszközök" rétegét – meghatározzák, hogyan áramlik a kontextus az LLM-hívások között, hogyan ütemeződnek az eszközök, és hogy az ügynök végrehajtási útvonala előre rögzített vagy dinamikusan generált-e. Az ügynök-összehangolás az egyszerűtől az összetett felé fejlődött, és minden mintának vannak megfelelő használati esetei és kompromisszumai. Az Anthropic tapasztalatai szerint, akik tucatnyi, LLM-ügynököket építő csapattal dolgoztak együtt, a legsikeresebb implementációk ritkán használnak összetett keretrendszereket; egyszerű, kombinálható mintákat használnak.
 
-Amikor LLM-alkalmazást építesz, haladj az egyszerűtől az összetett felé. Kezdd egyetlen LLM-hívással – ha jobb promptok és kontextusbeli példák megoldják a problémát, ne építs ügynökrendszert. Amikor több lépésre van szükség, és a feladat jól bontható rögzített alfeladatokra, használj munkafolyamatot (workflow). Használj autonóm ügynököt (autonomous Agent) csak akkor, ha dinamikus döntésekre és rugalmas végrehajtási útvonalra van szükséged. És ne feledd: az ügynökrendszerek jellemzően késleltetést és költséget cserélnek jobb feladatteljesítményre – alaposan értékeld, hogy a csere megéri-e.
+Amikor LLM-alkalmazást építesz, kövesd az egyszerűtől az összetett felé haladás elvét. Először egyetlen LLM-hívást mérlegelj. Ha jobb promptokkal és kontextusbeli példákkal megoldható a probléma, ne vezess be ügynökrendszert. Ha több lépésre van szükség, az egyértelműen rögzített alfeladatokra bontható esetekben fontold meg egy munkafolyamat (workflow) használatát. Autonóm ügynököt (autonomous Agent) csak akkor használj, ha dinamikus döntésekre és rugalmas végrehajtási útvonalakra van szükség. Ne feledd: az ügynökrendszerek jellemzően késleltetést és költséget cserélnek jobb feladatteljesítményre, ezért alaposan mérlegeld, hogy megéri-e ez a csere.
+
+Gyakori ellenpélda, amikor már az elején rendkívül összetett munkafolyamatot vagy többügynökös rendszert építünk. Ha például olyan ügynököt kell tervezni, amely „egymillió csevegőüzenetből személyes emlékeket nyer ki”, egyes AI-modellek gyorsan felrajzolnak egy látszólag szigorú folyamatot: először beszélgetési szakaszokra bontják az anyagot, majd egymás után külön ügynököket rendelnek a kinyeréshez, a bizonyítékok ellenőrzéséhez, az identitások feloldásához, az emlékek rendezéséhez és az összevonás felülvizsgálatához, végül pedig ténygráfot, lefedettségi naplót és megváltoztathatatlan verziókat hoznak létre. Külön-külön minden elem észszerűnek tűnik, együtt azonban rendkívül rossz hatékonyságú és megbízhatatlan rendszert alkotnak. Mivel egy összetett munkafolyamat végrehajtási topológiája rögzített, minden új kivétel könnyen újabb csomópont hozzáadásához vezet: az architektúra egyre bonyolultabbá, általánosíthatósága pedig egyre gyengébbé válik. A modell által a kontextus alapján meghozható szemantikai döntéseket így a munkafolyamatba kódoljuk.
+
+Ezért **a Harness fontossága nem jelenti azt, hogy minél összetettebb, annál jobb**. A Manus webhelye a „Less structure, more intelligence.” mondattal foglalja össze ezt a mérlegelést[^ch1-manus-less-structure]. Először adj egy kellően képzett ügynöknek világos célt, megfelelő kontextust és kombinálható eszközöket, természetes nyelven pedig mondd el neki, hogyan ellenőrizzen, hasonlítson össze és kezeljen konfliktusokat úgy, ahogy egy ember tenné. A program csak a mindig betartandó határokat rögzítse: például a jogosultságokat, az eredeti anyagok felülírásának tilalmát és az atomi közzétételt. Egy lépést csak akkor emelj külön ellenőrzővé, önálló ügynökké vagy determinisztikus folyamattá, ha ezt maga az üzleti korlát követeli meg, vagy az értékelések ismételten ugyanazt a stabil hibamódot tárják fel. A jó struktúra nem játssza le előre az ügynök minden gondolatát; őrzi a határokat, a rajtuk belüli döntési teret pedig visszaadja a modellnek.
+
+[^ch1-manus-less-structure]: Manus, “Less structure, more intelligence.” https://manus.im/
 
 #### Munkafolyamat minta: Determinisztikus összehangolás
 
@@ -362,16 +383,33 @@ A "munkafolyamat" (workflow) egy olyan rendszer, amely LLM-eket és eszközöket
 
 Például egy repülőjegy-foglaló ügynök használhat egy munkafolyamatot négy rögzített csomóponttal:
 
-1. "Felhasználói identitás ellenőrzése" – Az identitásellenőrző API meghívása a felhasználó azonosítására.
-2. "Elérhető járatok keresése" – A járatazonosító adatbázis lekérdezése a felhasználói igények alapján.
-3. "Fizetés teljesítése" – A fizetési interfész meghívása az összeg levonására.
-4. "Foglalás megerősítése" – A foglalási API meghívása a hely lefoglalására és visszaigazolás küldése a felhasználónak.
+1. **Felhasználói identitás ellenőrzése** – Az identitásellenőrző API meghívása a felhasználó azonosítására.
+2. **Elérhető járatok keresése** – A járatazonosító adatbázis lekérdezése a felhasználói igények alapján.
+3. **Fizetés teljesítése** – A fizetési interfész meghívása az összeg levonására.
+4. **Foglalás megerősítése** – A foglalási API meghívása a hely lefoglalására és visszaigazolás küldése a felhasználónak.
 
 Az LLM használható az egyes csomópontokon belül (pl. természetes nyelv használata a felhasználó utazási igényeinek megértésére), de a csomópontok közötti folyamat sorrendjét kód rögzíti – a rendszer nem foglal helyet a fizetés befejezése előtt, és nem kezd járatokat keresni az identitás ellenőrzése előtt.
 
 A munkafolyamat mintának két alapvető előnye van. Először is, "szigorú folyamatellenőrzés": a fejlesztő garantálhatja, hogy a kritikus lépések soha nem maradnak ki vagy nem hajtódnak végre rossz sorrendben – az olyan üzleti szabályok, mint "nincs foglalás fizetés előtt", kód által kényszerítettek ki, nem az LLM ítéletére bízva. Másodszor, "biztonság": mivel a végrehajtási útvonal determinisztikus, a prompt injection vagy egy modellhiba legfeljebb az aktuális csomóponton belüli feldolgozást érintheti; nem teheti lehetővé, hogy az ügynök olyan ágra ugorjon, ahová nem szabad. A támadási felület egyetlen csomópontra korlátozódik.
 
 A munkafolyamat fő korlátja a "rugalmasság hiánya". Amikor egy nem várt esemény következik be – például a felhasználó megváltoztatja a foglalást a fizetés során, vagy egy járatot törölnek, és a rendszernek alternatívát kell ajánlania –, a rögzített útvonal nem tud önállóan alkalmazkodni; csak egy előre beállított kivételágat követhet, vagy átadhatja a vezérlést egy emberi kezelőnek.
+
+Vegyünk egy lehető legegyszerűbb munkafolyamat-példát: a **szövegből kép generálást** (text-to-image). A felhasználó igénye gyakran egyetlen hétköznapi mondat, például „rajzolj nekem egy jelenetet a programozók munkájáról az AGI megvalósulása után"; az olyan szöveg-kép modellek, mint a Stable Diffusion azonban csak meghatározott stílusú promptokat fogadnak el – vesszővel elválasztott angol címkéket, minőségi szavakat és negatív promptokat. Ezért a munkafolyamatnak két rögzített csomópontot kell elhelyeznie a felhasználó és a képgeneráló modell közé:
+
+1. **Prompt-átírás** – LLM-mel írjuk át a felhasználó természetes nyelvű igényét a szöveg-kép modell által megszokott promptformátumra. A fenti példában „a programozók munkája az AGI megvalósulása után" nagyon tág igény, ezért az LLM-nek alaposan végig kell gondolnia a feladatot (például: „az AGI megvalósulása után a programozóknak már nem kell kódot írniuk, ezért egy programozót kell megrajzolni, amint a tengerparton napozik, és agy-gép interfészen keresztül irányítja az AI-alkalmazottait"), majd konkrét jelenetleírást kell adnia.
+2. **Képgenerálás** – az átírt prompttal hívjuk meg a szöveg-kép modellt, és megkapjuk a képet.
+
+A végrehajtási útvonal kódban van rögzítve. Az ebben a munkafolyamatban szereplő LLM-csomópont **fordítást** végez: az emberi nyelvet az eszköz által érthető bemeneti formátumra alakítja, és azért létezik, mert a szöveg-kép modell „nem érti az emberi nyelvet". Az ilyen, kifejezetten egy eszköz (vagy modell) képességbeli hiányosságait foltozó Harness-kódot nevezhetjük **adapterrétegnek**.
+
+Ha azonban a képgeneráló eszközt egy **natív képgenerálási** képességgel rendelkező multimodális modellre cseréljük – például Nano Banana 2-re vagy GPT-Image 2-re –, már nincs szükség prompt-átírásra. Akárhogyan is fogalmaz a felhasználó, a modell maga is megérti a kérést, és közvetlenül legenerálja a képet.
+
+> **1-4. kísérlet ★: Szöveg-kép munkafolyamat és natív képgenerálás összevetése**
+>
+> Ugyanazt a hétköznapi nyelven megfogalmazott igényt futtassuk végig két útvonalon. **Munkafolyamat-útvonal**: az LLM először Stable Diffusion-stílusú prompttá írja át az igényt, majd meghívja a szöveg-kép modellt a kép elkészítéséhez; **natív útvonal**: a mondatot változatlan formában elküldjük egy natív képgenerálást támogató multimodális modellnek (például GPT-Image 2-nek), amely egyetlen hívással közvetlenül képet ad.
+>
+> Vessük össze: mit csinált a prompt-átíró csomópont az eredeti igénnyel, és melyik útvonal képe áll közelebb az eredeti igényhez. Érdemes két igénytípusra külön elvégezni az összevetést: az egyik a konkrétan leírt igény (például megadott plakátszöveg), a másik a tág igény (például a fenti AGI-s munkajelenet); ez utóbbi esetében a munkafolyamat-útvonalnak továbbra is lehetnek saját előnyei.
+
+Ez a kísérlet azt mutatja: **a Harness azon részeit, amelyek a modell képességbeli hiányosságait foltozzák, a modell erősödésével maga a modell interiorizálja**. Már a könyv első fejezetében is több ilyen kör lejátszódott: a few-shot példákat és a „gondolkodjunk lépésről lépésre"-féle prompttrükköket az instrukció-finomhangolás és az érvelő modellek interiorizálták; a kimeneti formátum javítását és a JSON-elemzés hibatűrését a strukturált kimenet és a natív eszközhívás interiorizálta; a szöveg-kép prompt-átírást pedig a modell natív multimodális megértési és generálási képessége nyelte el. Minden interiorizálási kör éppen a „fordítás" és az „állványzat" (scaffolding) jellegű adapterréteg-kódot szünteti meg.
 
 #### Autonóm ügynök: Futásidőbeli döntéshozatal
 
@@ -395,29 +433,33 @@ A gyakorlatban a munkafolyamatok és az autonóm ügynökök nem zárják ki egy
 
 ![1-7. ábra: Az n8n munkafolyamat-szerkesztő felülete](images/n8n-workflow.png)
 
+Van a kettő vegyítésének még egy módja: **előbb az autonóm ügynök írja meg a munkafolyamatot, majd a munkafolyamat végzi a végrehajtást**. Az ügynök a feladat elolvasása után maga dönti el a topológiát, és generál egy vezénylő kódrészletet; amint a kód elkészült, a végrehajtási szakasz visszatér a munkafolyamat determinisztikusságához. Így megmarad az autonóm ügynök rugalmassága az ismeretlen feladatokkal szemben, ugyanakkor a modellnek nem kell minden egyes ütemezésnél döntenie. Ezt a formát a 10. fejezet tárgyalja részletesen.
+
 #### A főbb ügynökkeretrendszerek rövid összehasonlítása
 
 Az alábbi táblázat összefoglalja a széles körben használt ügynökkeretrendszereket és platformokat, hogy segítse az olvasókat a megfelelő kiválasztásában a saját forgatókönyvükhöz:
 
-| A Harness fókuszterülete | Kapcsolódó fejezet | Alapvető tartalom | Biztonsági aggályok |
-|---------------------------|--------------------|-------------------|---------------------|
-| Kontextustervezés | 2. fejezet (Context Engineering) | Prompt Engineering, ügynök állapotsáv, kontextus-tömörítés, Agent Skills | Prompt injection és információszivárgás |
-| Kontextus bővítése (tudás perzisztálása) | 3. fejezet (Knowledge Bases) | Felhasználói memória, RAG, strukturált indexek, Agentic RAG | Érzékeny információk kiszivárgása, adatvédelem |
-| Eszköztervezés és biztonsági korlátok | 4. fejezet (Tool Design) | Eszközbesorolás, engedélykezelés, MCP szabvány, aszinkron architektúra | Téves műveletek, jogosulatlan hozzáférés, visszafordíthatatlan műveletek |
-| Eszközök ellenőrzése és javítása | 5. fejezet (Code Generation) | Kódoló ügynökök Harness-e, tesztvezérelt fejlesztés, kódba foglalt szabályok | Személyazonosság-megszemélyesítés, felelősség-hozzárendelés |
-| Rendszerszintű ellenőrzés | 6. fejezet (Evaluation) | Értékelési környezet, adathalmazok, automatikus kiértékelés, megfigyelhetőség | — |
-| Modellszintű javítás | 7. fejezet (Post-training) | SFT (Supervised Fine-Tuning), Reinforcement Learning – a Harness által felhalmozott visszacsatolási jelek kódolása modellparaméterekbe, a Harness engineering kiterjesztéseként | Cél-eltolódás, alignment és robusztusság |
-| Rendszerszintű javítás | 8. fejezet (Self-Evolution) | Trajektória-tanulási jelek; tudás/utasítás/program/paraméter frissítések; önmódosítás; validálás és visszaállás | Memóriamérgezés, nem biztonságos önmódosítás, képességbeli sodródás |
-| Multimodális kontextus és eszközök | 9. fejezet (Multimodality and Real-Time Interaction) | Hangügynökök, Computer Use, robotikai műveletek | Multimodális bemenet biztonsági szűrése, engedélykezelés valós idejű interakcióban |
-| Korlátozások és javítások több ügynök között | 10. fejezet (Multi-Agent Collaboration) | Együttműködési architektúrák, hibamódok, ügynöktársadalmak | Bizalmi határok megsértése ügynökök között, megosztott erőforrás-konfliktusok |
+| Keretrendszer/platform | Alapvető rendeltetés | Összehangolási minta | Fejlesztési mód | Alkalmazási terület |
+|---|---|---|---|---|
+| **Codex Harness** | A Codexet hajtó nyílt forráskódú Agent-futtatókörnyezet | Autonóm | Kódközpontú, saját alkalmazásba ágyazható | Coding Agent, Agent beépítése saját termékbe |
+| **Claude Agent SDK** | Éles üzemi ügynökfejlesztési keretrendszer | Autonóm | Kódközpontú | Összetett autonóm feladatok, Coding Agentek |
+| **LangChain / LangGraph** | Általános LLM-alkalmazáskeret | Munkafolyamat + autonóm | Kódközpontú | Összetett gondolatmenetek, többlépéses munkafolyamatok |
+| **n8n** | Vizuális munkafolyamat-automatizálás | Munkafolyamat + autonóm | Low-code | Üzleti automatizálás, nem műszaki csapatok |
+| **Dify** | LLM-alkalmazásfejlesztési platform | Munkafolyamat + párbeszédes | Low-code + API | Vállalati RAG, tudásbázis-alkalmazások |
+| **CrewAI** | Szerepalapú többügynökös összehangolás | Többügynökös együttműködés | Kódközpontú | Csapatszerű feladatbontás és végrehajtás |
+| **OpenClaw** | Nyílt forrású, általános személyes ügynök | Autonóm + eseményvezérelt | Konfiguráció + kód | Személyi asszisztens, Deep Research, Computer Use, többplatformos üzenetkezelés |
+| **DeepSeek Harness** | Ügynök-önevolúciós keretrendszer | Minden bővítmény | Kódközpontú, könnyen testreszabható | Ügynökfejlesztők, kutatók |
+| **Pi** | Minimális Coding Agent keretrendszer | Autonóm | Kódközpontú, könnyen testreszabható | Ügynökfejlesztők |
 
-Ahogy a "Model as Agent" trend mélyül, a keretrendszerek alapvető értéke már nem az "LLM-hívások összehangolásában" rejlik – a modellek egyre inkább maguk döntenek. Ami fontosabbá vált, az a modell körüli Harness engineering: kontextuskezelés, eszköz-ökoszisztéma, biztonsági korlátok, hibajavítás. Amikor keretrendszert választasz, a kérdés nem az, hogy a keretrendszer mennyire kifinomult, hanem hogy lehetővé teszi-e, hogy a lehető legvékonyabb absztrakciós rétegen keresztül az üzleti logikára összpontosíts.
+A táblázat első két sora külön magyarázatot érdemel. A Codex az OpenAI Coding Agent terméke (alkalmazás, CLI, IDE-bővítmény), a Codex Harness pedig az a futtatókörnyezeti réteg, amely mindezeket a formákat hajtja[^ch1-codex-harness]. A Codex Harness három integrációs utat kínál: a `codex exec` a szkriptekben és CI-ben futó egyszeri feladatokhoz való; a Codex SDK olyan harmadik féltől származó alkalmazáskódhoz, amely feladatokat indít, folytat és folyamatosan dolgoz fel; az app-server pedig JSON-RPC protokollon keresztül nyújt tartós munkameneteket, eseményfolyamokat és jóváhagyási visszahívásokat, ami akkor jó, ha az Agentet közvetlenül a termékbe építed. A Claude Agent SDK és a Claude Code is hasonló viszonyban áll egymással, azzal a különbséggel, hogy a Claude oldalán az SDK felülete nyílik meg kifelé, magának a Harnessnek az implementációja nem nyílt forráskódú.
+
+[^ch1-codex-harness]: OpenAI. "Codex as a platform: build on the open agent harness", 2026. augusztus.
+
+Az ügynök-keretrendszerek gyorsan változnak. Mire ezt a könyvet olvasod, némelyikük már elavult lehet, és új keretek válhatnak népszerűvé. Ezért egy adott keretrendszer API-jának megtanulása önmagában nem fontos. Választáskor nem a keret bonyolultsága a döntő, hanem az, hogy elég vékony absztrakcióval hagy-e az üzleti logikára összpontosítani.
 
 Az összehangolási minták megoldják a kontextus és eszközök szervezését a Harness-en belül – hogyan kapcsolódnak össze az LLM-hívások, eszközök és adatfolyamok. De a feladat elvégzése nem elég; a feladatokat helyesen és biztonságosan is el kell végezni. Ezért rátérünk a korlátozás, ellenőrzés és javítás gyakorlati megvalósításának fő módjára: a védőkorlátokra (guardrails).
 
 ### Védőkorlátok és biztonság
-
-Ez a rész magas szintű áttekintést ad a védőkorlátokról a nagy kép felvázolásához. A megvalósítási részletek és gyakorlat a 2. fejezetben (prompt injection elleni védelem), a 4. fejezetben (eszköz-engedélyezés) és az 5. fejezetben (kódvégrehajtás biztonsága) következnek; az első olvasóknak nem kell minden részletet követniük.
 
 A védőkorlátok (guardrails) jelentik a Harness "korlátozás, ellenőrzés és javítás" rétegének elsődleges megvalósítását – egy rétegzett védelmet, amely az ügynök viselkedését biztonságosan és ellenőrizhetően tartja. A jól megtervezett "védőkorlátok" segítenek kezelni az adatvédelmi kockázatokat (például a system prompt kiszivárgásának megakadályozását) és a hírnévkockázatokat (például a modell viselkedésének a márkával való összhangban tartását). Kezdd azokkal a védőkorlátokkal, amelyeket a már azonosított kockázatokhoz terveztél, majd adj hozzá újakat, ahogy új sérülékenységek kerülnek felszínre.
 
@@ -427,19 +469,19 @@ A védőkorlátoknak van egy másik hibamódjuk is: a **téves elutasítás**. A
 
 #### A védőkorlátok típusai
 
-A végrehajtási folyamatban elfoglalt helyük alapján a védőkorlátok három típusba sorolhatók: bemeneti oldali, végrehajtási oldali és kimeneti oldali védőkorlátok.
+Elhelyezkedésük szerint a védőkorlátok három rétegre oszlanak: **kontextusréteg, végrehajtási réteg és adatréteg**. A három nem a kérésfeldolgozás sorrendje szerint van sorba rendezve, hanem aszerint, **mennyire nehéz megkerülni őket**: minél lejjebb van egy réteg, annál kevésbé függ a modell saját ítéletétől, és annál nehezebb egyetlen sikeres támadással áttörni. A könyv további biztonsági fejtegetései mind erre a fára akaszkodnak.
 
-"Bemeneti oldali" védőkorlátok a kéréseket azelőtt szűrik meg, hogy azok elérnék az ügynököt, jellemzően négy mechanizmuson keresztül. A "relevancia-osztályozók" (relevance classifiers) jelölik a témán kívüli lekérdezéseket – például egy kódolási asszisztenstől megkérdezve: "Milyen magas az Empire State Building?" A "biztonsági osztályozók" (safety classifiers) érzékelik a jailbreak-eket (a modell biztonsági korlátainak megkerülésére irányuló kísérleteket) és a prompt injection-öket (rosszindulatú utasítások beágyazását a bemenetbe). A legfontosabb különbség: jailbreak esetén a felhasználó közvetlenül próbálja megkerülni a modell korlátozásait; prompt injection esetén egy támadó külső adatokon (webes tartalom, dokumentumok) keresztül manipulálja a modell viselkedését. A "tartalommoderáció" (content moderation) káros vagy nem megfelelő bemenetet jelez, mint például erőszakos vagy diszkriminatív tartalom. A "szabályalapú védelmek" (rule-based protections) determinisztikus intézkedéseket alkalmaznak – feketelisták, bemeneti hosszkorlátok, reguláris kifejezés szűrők – ismert fenyegetések, mint az SQL injection ellen.
+A **kontextusréteg** védőkorlátai azt szabályozzák, **mit láthat a modell**, és még azelőtt elfogják a tartalmat, hogy bekerülne a kontextusba. Rendszerint négy mechanizmusból állnak. A **relevanciaosztályozó** megjelöli a témától elrugaszkodó lekérdezéseket — például amikor egy programozóasszisztens azt kapja, hogy „milyen magas az Empire State Building?". A **biztonsági osztályozó** felismeri a jailbreaket (Jailbreak, vagyis a modell rábírását a biztonsági korlátok megkerülésére) és a promptinjekciót (Prompt Injection, azaz rosszindulatú utasítások beágyazását a bemenetbe); a kulcskülönbség az, hogy a jailbreaket maga a felhasználó kísérli meg, a promptinjekció viszont a támadó közvetett manipulációja külső adatokon — weboldalakon, dokumentumokon — keresztül. A **tartalommoderálás** megjelöli a káros vagy nem megfelelő bemenetet, például az erőszakos vagy diszkriminatív tartalmat. A **szabályalapú védelem** determinisztikus eszközöket vet be — feketelistát, bemeneti hosszkorlátot, reguláris kifejezésű szűrőket — az ismert fenyegetések, például az SQL-injekció ellen. A forrásmegjelölés és az „utasítás / adat" szétválasztása szintén ide tartozik; a 2. fejezet fejti ki őket.
 
-"Végrehajtási oldali" védőkorlátok az eszközhívásokat validálják. A központi elem az "eszközkockázat-besorolás" (tool risk rating): az alapján, hogy egy művelet visszafordítható-e, milyen engedélyszintet igényel, és mi a pénzügyi hatása, minden eszköz kap egy kockázati szintet (alacsony/közepes/magas). A magas kockázatú műveletek további felülvizsgálatot vagy emberi megerősítést igényelnek.
-
-"Kimeneti oldali" védőkorlátok ellenőrzik a választ, mielőtt az visszakerülne a felhasználóhoz. A "PII-szűrők" (PII filters) átvizsgálják a kimenetet személyazonosításra alkalmas információkra (pl. személyi számok, telefonszámok) a szükségtelen kitettség megelőzése érdekében; a "kimeneti validálás" (output validation) biztosítja, hogy a válasz összhangban legyen a márkaértékekkel tartalomellenőrzéseken keresztül.
-
-Vegyük észre, hogy egyes mechanizmusok (pl. a szabályalapú regex-szűrés) használhatók mind a bemeneti, mind a kimeneti oldalon; a fenti kategorizálás a leggyakoribb telepítési helyeket követi.
-
-Az osztályozó-alapú védőkorlátok egy reprezentatív iparági gyakorlata az Anthropic Constitutional Classifiers rendszere[^ch1-3]. Tervezésének három kulcseleme van. Először is, "szabályvezérelt tréning": egy természetes nyelven írt "alkotmány" – amely kifejezetten meghatározza, hogy mi megengedett és mi nem – szintetikus tréningadatok generálására szolgál a bemeneti és kimeneti osztályozók számára. Másodszor, "közös kontextuális ítéletalkotás": az új generáció együtt ellenőrzi a felhasználó kérdését és a modell válaszát, mert néhány válasz önmagában teljesen rendben van (pl. "hogyan használjunk élelmiszer-aromákat"), és csak a kérdéssel együtt válik világossá, hogy az "élelmiszer-aromák" kódolva vegyi reagenseket jelentenek. Harmadszor, "kétszakaszos szűrés": egy rendkívül könnyű szonda – amely szinte nulla költséggel olvassa a modell belső aktivációit – először ellenőriz minden beszélgetést, és bármi gyanúsat egy erősebb osztályozóhoz továbbít felülvizsgálatra, ahelyett, hogy azonnal elutasítaná. Így az első szakasz több téves pozitívot is eltűrhet anélkül, hogy rontaná a felhasználói élményt, és a teljes költség jelentősen csökken.
+Az osztályozó-alapú védőkorlátok egy reprezentatív iparági gyakorlata az Anthropic Constitutional Classifiers rendszere[^ch1-3]. Tervezésének három kulcseleme van. Először is, "szabályvezérelt tréning": természetes nyelven írt szabályok – amely kifejezetten meghatározza, hogy mi megengedett és mi nem – szintetikus tréningadatok generálására szolgál a bemeneti és kimeneti osztályozók számára. Másodszor, "közös kontextuális ítéletalkotás": az új generáció együtt ellenőrzi a felhasználó kérdését és a modell válaszát, mert néhány válasz önmagában teljesen rendben van (pl. "hogyan használjunk élelmiszer-aromákat"), és csak a kérdéssel együtt válik világossá, hogy az "élelmiszer-aromák" kódolva vegyi reagenseket jelentenek. Harmadszor, "kétszakaszos szűrés": egy rendkívül könnyű szonda – amely szinte nulla költséggel olvassa a modell belső aktivációit – először ellenőriz minden beszélgetést, és bármi gyanúsat egy erősebb osztályozóhoz továbbít felülvizsgálatra, ahelyett, hogy azonnal elutasítaná. Így az első szakasz több téves pozitívot is eltűrhet anélkül, hogy rontaná a felhasználói élményt, és a teljes költség jelentősen csökken.
 
 [^ch1-3]: Anthropic. "Next-generation Constitutional Classifiers: More efficient protection against universal jailbreaks", 2026. https://www.anthropic.com/research/next-generation-constitutional-classifiers; tanulmány: Cunningham et al., "Constitutional Classifiers++: Efficient Production-Grade Defenses against Universal Jailbreaks", arXiv:2601.04603
+
+Ennek a rétegnek azonban van egy szerkezeti felső korlátja: **az ugyanabban a kontextusban ülő Ügynök nehezen tudja megítélni, hogy nem injektálták-e már**. A kontextusréteg ezért csökkentheti a támadás sikerarányát, de garanciát nem adhat — pontosan ezért van szükség az alatta lévő két rétegre.
+
+A **végrehajtási réteg** védőkorlátai azt szabályozzák, **mit tehet a modell**, és még azelőtt ellenőrzik a cselekvést, hogy az valóban hatályba lépne. Magvuk az **eszközkockázat-besorolás**: minden eszköz kockázati szintet (alacsony/közepes/magas) kap a művelet visszafordíthatósága, a jogosultsági szint és az anyagi hatás alapján, a magas kockázatú műveletekhez pedig további felülvizsgálat vagy emberi megerősítés kell. A lényeg, hogy ezt a felülvizsgálatot a **kontextuson kívüli** mechanizmusnak kell elvégeznie — önálló ellenőrző folyamatnak, minimális jogosultságú hitelesítő adatoknak, sandbox-elszigetelésnek, a hurokban lévő embernek —, különben az injektált Ügynökkel együtt bukik el. A felhasználónak visszaadott válasz maga is cselekvés (a 4. fejezet a felhasználói kommunikációs eszközök közé sorolja), így a **kimenet-ellenőrzés** is ide tartozik: a **PII-szűrő** átvizsgálja a kimenetet a személyazonosításra alkalmas adatok (személyi szám, telefonszám) után, hogy megelőzze a szükségtelen kiszivárgást, a **kimenet-validálás** pedig tartalmi ellenőrzéssel tartja a válaszokat összhangban a márkaértékekkel.
+
+Az **adatréteg** védőkorlátai azt szabályozzák, **mivé változtatható végül a világ**, és a „ki mit tehet melyik adattal" kérdését egy stabil, emberi felülvizsgálaton átesett mechanizmusra bízzák: az adatbázis sorszintű biztonsági szabályaira, kényszerekre és validátorokra, ellenőrzött nézetekre és tárolt eljárásokra, valamint egy megbízható futtatókörnyezet által kötött, hamisíthatatlan hozzáférési kontextusra. E réteg értéke épp abban áll, hogy nem függ a fölötte lévő kettő helyességétől: még ha a promptinjekció sikerül is, és a generált kód teljesen kihagyja a jogosultság-ellenőrzést, a jogosulatlan műveletet az adatréteg akkor is elutasítja. Az 5. fejezet a dinamikusan generált szoftver példáján fejti ki ezt a réteget.
 
 #### Emberi beavatkozás
 
@@ -449,17 +491,19 @@ Az emberi közreműködés mechanizmusával egy olyan ügynök, amely nem tudja 
 
 Jellemzően két fő helyzet váltja ki az emberi beavatkozást:
 
-"Hibaküszöbök túllépése"
+**Hibaküszöbök túllépése**
 Állíts be korlátokat az ügynök újrapróbálkozásaira és műveleteire. Ha az ügynök túllépi ezeket a korlátokat, továbbítsd emberi kezelőhöz.
 
-"Magas kockázatú műveletek"
+**Magas kockázatú műveletek**
 Az érzékeny, visszafordíthatatlan vagy magas kockázatú műveleteknek emberi felügyeletet kell kiváltaniuk – legalább addig, amíg a csapat elegendő bizalmat nem épített az ügynök megbízhatóságában. Tipikus példák a nagy összegű visszatérítések engedélyezése és a fizetések feldolgozása.
 
-Az öt Harness-elem ismeretében a könyv további része ezt a struktúrát követi.
+Térjünk vissza az öt Harness-elem fő vonalához, és nézzük meg, hogyan viszonyul a könyv szerkezetéhez.
 
-### Ez a könyv mint gyakorlati útmutató a Harness Engineeringhez
+### Az öt Harness-elem és az „építés" rész
 
-A Harness engineering lencséjén keresztül nézve a könyv minden fejezete szisztematikusan kiépíti a Harness egy-egy összetevőjét. A biztonság eközben egyetlen fejezethez sem tartozik; a teljes könyv keresztmetszeti szempontja (a keresztmetszeti szempont egy rendszer számos részét érinti egyszerre – ahogy a naplózásnak, a szoftvermérnökségben, minden modulon át kell haladnia). Az alábbi táblázat a Harness-funkciókat, a biztonsági szempontokat és a kapcsolódó fejezeteket egyetlen nézetben mutatja be:
+**Először tisztázzuk a két képlet viszonyát, hogy senkinek se kelljen két vázat fejben tartania.** A könyvnek pontosan egy szerkezeti váza van, az, amelyet a bevezető és az utószó újra meg újra használ: **Ügynök = LLM + kontextus + eszközök** – a 2–6. fejezet épít, a 7–9. fejezet értékel és fejleszt, a 10. fejezet együttműködik. Az **Ügynök = Modell + Harness** nem egy mellé állított rivális felosztás, hanem ugyanannak a termelési formába kibontott alakja: a „kontextust" és az „eszközöket" bontja ki öt felelősséggé – kontextuskezelés, eszközinterfész, korlátok, ellenőrzés, javítás. Ezért ez **az „építés" részen belül használt lencse**, nem pedig mind a tíz fejezetet lefedő tartalomjegyzék.
+
+Ezen a körön belül az öt Harness-elem világosan megfelel a 2–5. fejezetnek:
 
 | A Harness fókuszterülete | Kapcsolódó fejezet | Alapvető tartalom | Biztonsági aggályok |
 |---------------------------|--------------------|-------------------|---------------------|
@@ -467,13 +511,26 @@ A Harness engineering lencséjén keresztül nézve a könyv minden fejezete szi
 | Kontextus bővítése (tudás perzisztálása) | 3. fejezet (Knowledge Base) | Felhasználói memória, RAG, strukturált indexelés, agentic RAG | Érzékeny információk kiszivárgása, adatvédelem |
 | Eszköztervezés és biztonsági korlátok | 4. fejezet (Tool Design) | Eszközbesorolás, engedélykezelés, MCP szabvány, aszinkron architektúra | Téves műveletek, jogosulatlan hozzáférés, visszafordíthatatlan műveletek |
 | Eszközök ellenőrzése és javítása | 5. fejezet (Code Generation) | Kódoló ügynökök Harness-e, tesztvezérelt fejlesztés, kódba foglalt szabályok | Személyazonosság-megszemélyesítés, felelősség hozzárendelése |
-| Rendszerszintű ellenőrzés | 6. fejezet (Evaluation) | Értékelési környezet, adathalmazok, automatikus kiértékelés, megfigyelhetőség | — |
-| Modellszintű javítás | 7. fejezet (Post-Training) | SFT (Supervised Fine-Tuning), Reinforcement Learning – a Harness által felhalmozott visszacsatolási jelek kódolása modellparaméterekbe, a Harness engineering kiterjesztéseként | Cél-eltolódás, alignment és robusztusság |
-| Rendszerszintű javítás | 8. fejezet (Self-Evolution) | Külső tanulás, eszközlétrehozás, tapasztalatfelhalmozás | — |
-| Multimodális kontextus és eszközök | 9. fejezet (Multimodal and Real-Time Interaction) | Hangügynök, Computer Use, robotikai műveletek | Multimodális bemenet biztonsági szűrése, engedélykezelés valós idejű interakcióban |
-| Korlátozások és javítások több ügynök között | 10. fejezet (Multi-Agent Collaboration) | Együttműködési architektúra, hibamódok, ügynöktársadalom | Bizalmi határok megsértése ügynökök között, megosztott erőforrás-konfliktusok |
+
+A 6. fejezet (interakció) egyik elemhez sem tartozik: azt terjeszti ki, hogy maga a megfigyelési és a cselekvési tér milyen modalitásban és milyen időzítéssel működik. A 7–9. fejezet azt kérdezi, **honnan tudjuk, hogy a Harness jól épült meg, és hogyan tartható folyamatosan javuló pályán**. A 10. fejezet pedig egyetlen Ügynök Harness-ét több Ügynök együttműködési szerkezetére cseréli. Ha ezeket a fejezeteket is beleerőltetnénk az öt rekeszbe, a rekeszek egyszerűen elveszítenék megkülönböztető erejüket.
+
+A biztonság szintén nem fejezetenként oszlik meg: az egész könyvön végigvonuló keresztmetsző szempont (cross-cutting concern, azaz a rendszer több részét érintő probléma), és az előző szakasz háromrétegű védőkorlátja szerint rendeződik – kontextusréteg, végrehajtási réteg, adatréteg. A fenti táblázat „biztonsági fókusz" oszlopa azt adja meg, hogy az egyes fejezetek elsősorban melyik rétegre érkeznek.
 
 Az Anthropic gyakorlata a hosszú ideig futó ügynökök építésében megmutatja, hogy a Harness-tervezés hogyan oldhat meg olyan problémákat, amelyeket maga a modell nem képes. A bonyolult feladatokat egy "Inicializáló Ügynök" (környezet beállítása, feladatlista lebontása) és egy "Végrehajtó Ügynök" (minden munkamenetben inkrementális előrelépés és tiszta átadási artefaktumok hátrahagyása) közé osztották, strukturált Harness-t használva a hosszú feladatok két hibamódjának kezelésére: a kontextus kifogyása és a feladat idő előtti befejezettnek nyilvánítása. Az előttünk álló fejezetek a Harness összetevőit veszik sorra – a 2. fejezet a legközpontibbal, a kontextusmérnökséggel kezdi, és az 5. fejezet fekteti le a Kódoló Ügynökök teljes Harness-mérnökségi gyakorlatát.
+
+## A könyvön végigvonuló tervezési minták
+
+A következő fejezetek újra és újra ugyanazokat a tervezési mintákat használják, ezért itt egyszer elnevezzük és szabatosan meghatározzuk őket.
+
+**Javasló–Ellenőrző (Proposer-Reviewer)**: az előállítást és az ítéletet két olyan szerep végzi, amely nem osztozik a kontextuson, és az ítélő magát a terméket látja – a kirenderelt eredményt, a teszt kimenetét, a strukturált hívási paramétereket –, nem pedig az előállító gondolatmenetét. Az előfeltevés, hogy **az önellenőrzés megbízhatatlan**: az adott kontextuson belüli modell sem arra nem jut rá, amire nem jutott, sem azt nem tudja könnyen megítélni, hogy nem injektálták-e már. A 3. fejezet ezzel frissíti a tudást; a 4. fejezet az eszközhívások előzetes jóváhagyására és utólagos ellenőrzésére használja (a Sidecar ennek csak olvasható változata); az 5. fejezet prezentációs, videós és naplós kísérlete egyaránt erre épül; a 7. fejezet felületek értékelésére, a 9. fejezet frissítési javaslatok elbírálására használja; a 10. fejezet pedig azt tárgyalja, milyen alakot ölt a társi együttműködésben, és miért nem szabad egyazon Ügynökkel önmagát ellenőriztetni.
+
+**Fokozatos feltárás (Progressive Disclosure)**: ahelyett, hogy minden információt egyszerre tennénk a kontextusba, előbb egy kereshető katalógust adunk, a részleteket pedig igény szerint töltjük be. Egyszerre két dolgot optimalizál: a kontextusköltségvetést és a kiválasztás pontosságát. A 2. fejezet Agent Skills mechanizmusa a legjellemzőbb alakja (a metaadat bent marad, a törzs igény szerint töltődik); a 3. fejezet rétegzett keresése, a 4. fejezet proaktív eszközfelfedezése és lapozó csonkolása, valamint a 10. fejezet Ügynök-felfedezése mind ennek változatai.
+
+**Csak hozzáfűzés (Append-only)**: az állapot hozzáfűzéssel halad előre, a már leírtat nem írjuk át utólag. Cserébe gyorsítótárazhatóságot, visszajátszhatóságot és auditálhatóságot kapunk. A 2. fejezet KV Cache-előtagstabilitása ennek teljesítménybeli alakja – minél elöl van a változás, annál több gyorsítótár érvénytelenedik; a 3. fejezet eseményszerű memóriája és a 4. fejezet szokása, hogy az új eszköz sémáját a trajektória végére fűzi, nem pedig visszaszúrja az előtagba, ugyanezt a fegyelmet követi.
+
+**Határhalmaz + megtartási halmaz (Boundary Set + Retention Set)**: minden módosítást egyszerre kell érvényesíteni azon a mintakészleten, „amelyet meg kell változtatnia", és azon, „amelyet nem szabad befolyásolnia". Csak az elsőt mérve a túlillesztést tekintjük haladásnak; csak a másodikat mérve a hatástalan módosítást tekintjük biztonságosnak. A 7. fejezet regressziós feladatai, a 8. fejezet tréning–értékelés elkülönítése és a 9. fejezet frissítésijavaslat-ellenőrzése mind erre a halmazpárra épül.
+
+**Minimális diff + visszafordíthatóság**: minden módosítás legyen a lehető legkisebb, hordozza a forrását, és legyen külön visszavonható – ne teljes újraírás. Ez teszi lehetővé a hozzárendelést: ha valami elromlik, konkrét módosításig vissza lehet vezetni. A 3. fejezet tudásfrissítései, az 5. fejezet kódfoltjai, a 9. fejezet prompt- és programfrissítései mind ezt követik; a fejezet elején megadott három frissítési útvonal (kontextuson belüli alkalmazkodás, külső termék frissítése, paraméterfrissítés) pedig épp a visszafordíthatóság csökkenő sorrendjében áll.
 
 ## Fejezet-összefoglaló
 
@@ -483,15 +540,17 @@ Ez a fejezet egy gyakorlatközpontú keretrendszert épített fel az AI-ügynök
 
 **A kontextus és eszközök bővítése az elsődleges képességemelő**: Ha a modell rögzített, a megfigyelési és cselekvési terek újradefiniálása vagy bővítése – azaz a kontextus és eszközök kiterjesztése – gyakran közvetlenül megoldhatóvá tehet egy korábban megoldhatatlan feladatot. A Manustól az OpenClaw-ig tartó fejlődés megmutatja, hogy az általánosság nagy része az interfész határainak szélesítéséből származik; ennek a bővítésnek igény szerintinek kell maradnia, és engedélyekkel és ellenőrzéssel kell párosulnia.
 
-"A kontextus a döntő tényező": A kontextus egy statikus előtagból (system prompt + eszközdefiníciók) és egy dinamikus trajektóriából (üzenetelőzmény) áll. Az abláció megmutatja, hogy bármely összetevő eltávolítása érezhetően rontja a rendszert. A ReAct ciklus lényege, hogy újra és újra hozzáfűz a trajektóriához, így a modell folyamatosan halad a feladattal.
+**A kontextus a döntő tényező**: A kontextus egy statikus előtagból (system prompt + eszközdefiníciók) és egy dinamikus trajektóriából (üzenetelőzmény) áll. Az abláció azt mutatja, hogy az összetevők nem egyenértékűek: az eszközdefiníciók vagy az eszközeredmények eltávolítása közvetlenül elveszi a cselekvés, illetve a hurokzárás képességét, míg a másik kettő eltávolításának ára attól függ, hogy az adott információ visszaállítható-e az aktuális megfigyelésekből. A ReAct ciklus lényege, hogy újra és újra hozzáfűz a trajektóriához, így a modell folyamatosan halad a feladattal.
 
-"A Harness a versenyelőny": A modellképesség árucikké válik; a valódi megkülönböztető tényező a Harness – a kontextus és eszközök köré épített korlátozó, ellenőrző és javító mechanizmusok, amelyek lehetővé teszik a megbízható feladatvégrehajtást. Az éles üzemre szánt ügynökrendszerekben a Harness kódjának túlnyomó többsége ezekbe a védelmi mechanizmusokba kerül, nem csupán a kontextusba és eszközökbe.
+**A Harness a versenyelőny**: A modellképesség árucikké válik; a valódi megkülönböztető tényező a Harness – a kontextus és eszközök köré épített korlátozó, ellenőrző és javító mechanizmusok, amelyek lehetővé teszik a megbízható feladatvégrehajtást. Az éles üzemre szánt ügynökrendszerekben a Harness kódjának túlnyomó többsége ezekbe a védelmi mechanizmusokba kerül, nem csupán a kontextusba és eszközökbe.
 
-"A munkafolyamattól az autonóm ügynökig": Promptok először, majd munkafolyamatok, végül autonóm ügynökök – ez a sorrend a legpraktikusabb módja a váratlan viselkedés csökkentésének. Minden összehangolási mintának vannak olyan helyzetei, ahol illeszkedik; egyetlen minta sem a legjobb mindenhol.
+**A munkafolyamattól az autonóm ügynökig**: Promptok először, majd munkafolyamatok, végül autonóm ügynökök – ez a sorrend a legpraktikusabb módja a váratlan viselkedés csökkentésének. Minden összehangolási mintának vannak olyan helyzetei, ahol illeszkedik; egyetlen minta sem a legjobb mindenhol.
 
-"A biztonság architekturális kérdés": Védőkorlátok, emberi közreműködés, alignment – a biztonságot az első kódsorból kezdve kell tervezni, nem a bevezetés előtt utólag hozzáfoldozni. Öt szintet ölel fel: modell, kontextus, eszközök, együttműködés és társadalom.
+**Öt tervezési minta vonul végig a könyvön**: Javasló–Ellenőrző, fokozatos feltárás, csak hozzáfűzés, határhalmaz + megtartási halmaz, valamint minimális diff + visszafordíthatóság.
 
-A következő fejezet a Harness legközpontibb összetevőjét vizsgálja meg részletesen: a kontextusmérnökséget. A 7. fejezet az ügynök fogalom akadémiai gyökereit tárgyalja a megerősítéses tanulásban, és összehasonlítja a hagyományos RL-t a modern LLM-ügynökökkel.
+**A biztonság architekturális kérdés**: Már az első kódsortól gondolni kell rá, nem a bevezetés előtt utólag hozzáfoltozni. A védőkorlátok a megkerülés nehézsége szerint kontextus-, végrehajtási és adatrétegre oszlanak; a későbbi biztonsági tárgyalás mind erre a vázra épül.
+
+A következő fejezet a Harness legközpontibb összetevőjét vizsgálja meg részletesen: a kontextusmérnökséget. A 8. fejezet az ügynök fogalom akadémiai gyökereit tárgyalja a megerősítéses tanulásban, és összehasonlítja a hagyományos RL-t a modern LLM-ügynökökkel.
 
 Az alábbi gondolkodtató kérdések célja, hogy a fejezet alapfogalmait egy szinttel mélyebbre vigyék; nincs rájuk egyetlen szabványos válasz.
 
@@ -500,7 +559,7 @@ Az alábbi gondolkodtató kérdések célja, hogy a fejezet alapfogalmait egy sz
 1. ★★ Ha csak egy képességet adhatnál egy ügynökrendszerhez – egy erősebb modellt, gazdagabb kontextust vagy több eszközt –, melyiket választanád? Milyen körülmények között változna meg a választásod?
 2. ★★★ Egy ReAct ciklusban az összesített cache-olvasási mennyiség a körök számával közel négyzetesen nő. Hogyan csökkenthető ez a növekedés?
 3. ★★ A "Model as Agent" paradigma azt jelenti, hogy a modellek egyre autonómabbak az eszközhívási döntésekben. Ez a fejezet azonban azt állítja, hogy a Harness engineering fontossága valójában növekszik. Hogyan létezhet együtt ez a két trend? Hol van az ügynökkeretrendszerek jövőbeli alapvető értéke?
-4. ★★ Az abláció vizsgálatban az "eszközeredmények visszajelzésének" hiánya végtelen ciklusba taszította az ügynököt. Éles üzemi környezetben az eszközeredmények hiányán kívül milyen más helyzetek okozhatják, hogy egy ügynök ciklusba kerüljön? Milyen észlelési és megszakítási mechanizmusokat terveznél?
+4. ★★ Az abláció vizsgálatban az "eszközeredmények visszajelzésének" hiánya arra készteti az ügynököt, hogy addig próbálkozzon újra, amíg el nem fogy az iterációs kerete. Éles üzemi környezetben az eszközeredmények hiányán kívül milyen más helyzetek sodorhatják az ügynököt ilyen ciklusba? Milyen észlelési és megszakítási mechanizmusokat terveznél?
 5. ★ Ez a fejezet öt ügynökterméket elemzett három dimenzió mentén: aktuális információhalmaz, cselekvési interfészek és stratégia. Válassz ki egy általad naponta használt AI-terméket, elemezd ugyanezen három dimenzió mentén, és ítéld meg, hogy az architektúrája megfelelő-e. Ha te terveznéd, min javítanál?
 6. ★★ Ha egy kifejezetten repülőjegy-foglalásra szánt ügyfélszolgálati rendszert terveznél, milyen mintát – munkafolyamatot vagy autonóm ügynököt – választanál? Lehetséges-e a két minta keverése ugyanabban a rendszerben?
 7. ★★★ A védőkorlátok rész említette az eszközkockázat-besorolást. Ha egy eszköz általában alacsony kockázatú, de bizonyos paraméterkombinációkkal magas kockázatúvá válik (pl. a `delete_file` egy normál fájl törlése vs. egy rendszerfájl törlése), hogyan terveznéd meg a dinamikus kockázatértékelést?

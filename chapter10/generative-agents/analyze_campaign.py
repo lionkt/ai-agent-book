@@ -180,11 +180,11 @@ def main() -> int:
     args = parser.parse_args()
     output = args.output.resolve()
     storage = output / "storage"
-    seed_nodes = persona_nodes(storage / "exp10_7_history_seed")
+    seed_nodes = persona_nodes(storage / "exp10_5_history_seed")
     seed_counts = {name: len(rows) for name, rows in seed_nodes.items()}
     result = {
         "schema_version": 1,
-        "experiment": "10-7",
+        "experiment": "10-5",
         "source_commit": "fe05a71d3e4ed7d10bf68aa4eda6dd995ec070f4",
         "seed_memory_nodes_by_persona": seed_counts,
         "arms": {},
@@ -213,7 +213,7 @@ def main() -> int:
     analysis_dir = output / "analysis"
     analysis_dir.mkdir(parents=True, exist_ok=True)
     path = analysis_dir / "deterministic_analysis.json"
-    path.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n")
+    path.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0
 

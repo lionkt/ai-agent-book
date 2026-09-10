@@ -148,6 +148,8 @@ The two calls in the figure both refer to **calls to the model API**, not to two
 }
 ```
 
+This `tools` list is static tool metadata the developer registered ahead of time: the tool names, descriptions and parameter schemas are written into the code and have nothing to do with what the user happens to be asking this time. Whether the user asks about the weather in Vancouver or asks the Agent to book a flight, the same list goes out; the example lists only the two relevant tools to keep the request short, whereas a real Agent often declares dozens of them at once. **The Agent did not first split the user input into a "look up the time" subtask and a "look up the weather" subtask and then write the matching tool descriptions** — that decomposition happens on the model's side, and it is precisely the `tool_calls` in the response below.
+
 **Model returns a tool call request (not a final reply):**
 
 ```javascript
@@ -248,7 +250,7 @@ If the user wants more information (for example, by asking "What about Tokyo?"),
 
 ### Implementing the Agent's Core Loop in Code
 
-Now that the JSON structure is clear, we can connect the steps above in Python. The following is a minimal Agent implementation built around a single loop:
+Now that the JSON structure is clear, we can connect the steps above in Python. The following is a minimal Agent implementation built around a single loop: This chapter deliberately keeps this full API loop as a protocol reference; other chapters use Python-style skeleton code to explain mechanisms.
 
 ```python
 from openai import OpenAI
@@ -333,7 +335,7 @@ The loop has one main branch: **if the model returns `tool_calls`, execute the t
 The `messages` list changes across rounds as follows:
 
 **Initial state (before the first call):**
-```
+```text
 messages = [
   { role: "system",  content: "You are a helpful assistant..." },     # Written by developer
   { role: "user",    content: "What's the current time and weather in Vancouver?" },  # User input
@@ -341,7 +343,7 @@ messages = [
 ```
 
 **After the first call (model returns tool calls):**
-```
+```text
 messages = [
   { role: "system",    content: "..." },
   { role: "user",      content: "What's the current time..." },
@@ -352,7 +354,7 @@ messages = [
 ```
 
 **After the second call (model returns final reply, loop ends):**
-```
+```text
 messages = [
   { role: "system",    content: "..." },
   { role: "user",      content: "What's the current time..." },
@@ -374,6 +376,27 @@ The example above shows the complete composition of context each time the Agent 
 The upper part (System Prompt + Tool Definitions) remains unchanged throughout the conversation, while the lower part (conversation history, i.e., the **trajectory** defined in Chapter 1) grows with each interaction. This is how the five context components from Chapter 1 appear at the API level: the system prompt and tool definitions form a static prefix, while user messages, model replies, and tool execution results form a dynamically growing message history. This "static prefix + trajectory" structure is the foundation for later discussions of KV Cache optimization, context compression, and related techniques: the prefix should remain stable, while later trajectory segments can be summarized or replaced when the trade-off is worthwhile.
 
 The rest of this chapter examines each layer of this structure: how to use a stable static prefix to accelerate inference (KV Cache), how to design an effective System Prompt (prompt engineering), how to prevent external content from hijacking the context (prompt injection defense), how to load specialized knowledge on demand (Agent Skills), how to inject dynamic state at the end of the conversation (Agent Status Bar), and how to compress conversation history when it grows too large (compression strategies).
+
+The techniques that follow go by many names, but at each request they amount to a single context-construction decision. The Python-style pseudocode below preserves the minimal skeleton of that decision; it complements the full API loop above by emphasizing context layout, and does not replace protocol details such as message roles and `tool_call_id`.
+
+```python
+stable_prefix = system_message
+stable_tools = core_tool_schemas
+trajectory = load_message_history(session)
+status_message = make_status_message(derive_current_state(trajectory))
+
+if estimated_tokens(stable_prefix, trajectory, status_message) > budget:
+    trajectory = compress_old_evidence(
+        trajectory,
+        preserve = [decisions, constraints, failures, citations]
+    )
+
+request.messages = [stable_prefix] + trajectory + [status_message]
+request.tools = stable_tools
+response = call_model(request)
+```
+
+Keep the system prompt and core tool definitions as stable as possible; compress old tool outputs only in batches as the budget approaches; and place the current state at the tail of the trajectory so the model does not have to re-derive it from a long history.
 
 > **Experiment 2-1 ★: Local LLM Service Deployment and Tool Calling**
 >
@@ -500,7 +523,7 @@ Agent developers **do not need to manually write or modify the Chat Template**; 
 
 With Qwen3's Chat Template, for instance, multi-turn tool calls can retain prior internal reasoning content inside `<think>` tags like derivations on scratch paper, preserving continuity across tool calls. When the template detects a new user query, it assumes that the user has changed the subject, clears the previous reasoning, and starts again. If a tool result is incorrectly marked as a user message, it can trigger this reset at the wrong time—as though the model's scratch paper were taken away halfway through a calculation—severely weakening the coherence of multi-step reasoning.
 
-Note that different model families differ greatly in how they handle historical chain-of-thought, and the strategies themselves are evolving rapidly. The official guidance in the DeepSeek R1 era was to **strip all historical reasoning**: in multi-turn conversations, only `content` is passed back, not `reasoning_content`—because historical CoT never appeared in R1's training input, feeding it back is out-of-distribution input that may instead interfere with the output, and it also saves a considerable number of tokens. But this strategy has flaws for Agent scenarios: intermediate reasoning carries critical state such as "why this tool was called and which hypotheses were ruled out"; once stripped, the model reasons from scratch every turn, making it prone to repeating mistakes and losing long-range plans. DeepSeek therefore **completely reversed** the policy in V4, mandating that the `reasoning_content` of every assistant message (including those with `tool_calls`) be passed back verbatim, otherwise the API returns an error outright—Kimi K2, GLM-5, and others have adopted the same protocol. Claude, meanwhile, requires the client to pass the thinking block (with signature verification) back to the API unchanged within the tool call loop; after new user input, the server ignores thinking blocks from before the most recent user input. Consult the model's latest documentation before use.
+Note that different model families differ greatly in how they handle historical chain-of-thought, and the strategies themselves are evolving rapidly. The official guidance in the DeepSeek R1 era was to **strip all historical reasoning**: in multi-turn conversations, only `content` is passed back, not `reasoning_content`—because historical CoT never appeared in R1's training input, feeding it back is out-of-distribution input that may instead interfere with the output, and it also saves a considerable number of tokens. But this strategy has flaws for Agent scenarios: intermediate reasoning carries critical state such as "why this tool was called and which hypotheses were ruled out"; once stripped, the model reasons from scratch every turn, making it prone to repeating mistakes and losing long-range plans. DeepSeek therefore **completely reversed** the policy in V4: as long as the request carries the `tools` parameter, the `reasoning_content` of every assistant message between two user messages—even one that made no tool call on that turn—must be passed back verbatim, or the API returns a 400 error; plain chat without `tools` still ignores historical reasoning. An Agent always carries `tools`, so there is no escaping this requirement—Kimi K2, GLM-5, and others have adopted the same protocol. Claude, meanwhile, requires the client to pass the thinking block (with signature verification) back to the API unchanged within the tool call loop; after new user input, the server ignores thinking blocks from before the most recent user input. Consult the model's latest documentation before use. Across multi-turn dialogue these differences only decide whether tokens are saved; the moment a half-finished trajectory has to be handed to another vendor's model to complete, they turn into real API errors—see Experiment 5-1 in Chapter 5.
 
 **Second, it explains why KV Cache is so sensitive to the prefix.** The Chat Template converts system messages and tool definitions into a fixed token sequence near the beginning of the input. The key-value states for these tokens can be cached and reused across requests. If a token in this prefix changes—even because of an extra space in the system prompt—the cache from the first differing token onward can no longer be reused.
 
@@ -510,11 +533,11 @@ To understand the value of KV Cache, first consider what happens without it. Sup
 
 ![Figure 2-10: KV Cache Prefix Reuse Mechanism](images/fig2-10.svg)
 
-**Understanding KV Cache with a simple example.** Suppose the context has 4 tokens [A, B, C, D], and the model is about to generate the fifth token, E. The core attention operation compares E's Query vector with the Key vectors of the existing tokens to calculate match scores (for an intuitive explanation of dot products, see Experiment 2-2). It then uses those scores to compute a weighted sum of the Value vectors, producing E's output representation.
+**Understanding KV Cache with a simple example.** Suppose the context has 4 tokens [A, B, C, D], and the model is about to generate the fifth token, E. The core attention operation works like this: the Query vector for this step comes from the last known token, D, and is compared with the Key vectors of the four tokens A, B, C, and D to calculate match scores (for an intuitive explanation of dot products, see Experiment 2-2). It then uses those scores to compute a weighted sum of the Value vectors of those same four tokens, producing the output representation at D's position — which is exactly what the model uses to predict the next token, E. E's own Q, K, and V are computed only after E has been sampled and fed back into the model.
 
-Without KV Cache, every time a new token is generated, the K and V vectors of all preceding tokens must be recalculated from scratch: generating E requires computing 5 sets of K and V, generating the sixth token requires computing 6 sets... and by the Nth token, N sets must be computed, with the total computation proportional to N².
+Without KV Cache, every new token requires running the whole prefix forward again from scratch: generating E requires computing the 4 sets of K and V for A, B, C, and D; generating the sixth token requires 5 sets, now including E... and once the prefix reaches N tokens, N sets must be computed, with the cumulative computation proportional to N².
 
-With KV Cache, the K and V vectors of A, B, C, and D are cached after being computed once. When generating E, only E's own K and V need to be computed, and then the attention calculation is performed using these along with the 4 cached sets. Note that KV Cache saves the recomputation of the K and V projections for historical tokens, so each decoding step does not need to recompute the entire prefix; however, the attention calculation for each new token still needs to traverse all cached K and V values, with computation growing linearly with context length — this is why long-context decoding becomes increasingly slow, and KV Cache's memory and bandwidth become the inference bottleneck.
+With KV Cache, each token's K and V are computed once, when that token first enters the context, and stay in the cache from then on. At the step that generates E, the 4 sets for A, B, C, and D are already cached and merely have to be read back to complete the attention calculation; only after E has been sampled and fed back into the model are E's own K and V computed and appended, growing the cache to 5 sets for generating the sixth token. Note that KV Cache saves the recomputation of the K and V projections for historical tokens, so each decoding step does not need to recompute the entire prefix; however, the attention calculation for each new token still needs to traverse all cached K and V values, with computation growing linearly with context length — this is why long-context decoding becomes increasingly slow, and KV Cache's memory and bandwidth become the inference bottleneck.
 
 **Why does modifying the prefix invalidate the cache after the point of change?** Large language models are composed of stacked Transformer layers (modern LLMs typically have dozens to hundreds of layers), and each layer produces its own K and V cache. These layers are connected in sequence: the output of layer 1 becomes the input to layer 2, the output of layer 2 becomes the input to layer 3, and so on. When processing each word, layer 1 considers that word and all preceding words, then outputs an intermediate representation; layer 2 takes that representation and processes it further. If token k changes (for example, because one character in the system prompt changes), the states before k are unaffected, but the representations from k onward are affected as the change propagates through the layers. In practice, the cache can be reused only through the token before the first difference and must be recomputed from that position onward. The cost depends on where the change occurs: the earlier it is, the more tokens typically need to be recomputed and billed again and the greater the impact on latency (this chapter's experiments measured severalfold increases). This is why the book repeatedly emphasizes: once the system prompt is set, do not change it.
 
@@ -590,13 +613,36 @@ Modern large language models show significant sensitivity to structured input, s
 
 Markdown provides lightweight structure while maintaining readability, making it particularly suitable for organizing hierarchical instructions and information. XML and Markdown create a two-layer structure: XML provides precise, machine-parseable semantics, while Markdown organizes the content for human and machine readers.
 
+Here is a system prompt that uses both at once:
+
+```text
+# Tool Usage Guidelines
+
+## File Operations
+<file_operation>
+- Check whether the path exists before reading a file
+- Create a backup before writing a file
+</file_operation>
+
+## Network Requests
+<network_request>
+- Set the timeout to 30 seconds
+- Retry at most 3 times after a failure
+</network_request>
+```
+
+- **What Markdown contributes**: headings such as `#` and `##` let a human take in the hierarchy at a glance, which keeps the prompt readable.
+- **What XML contributes**: tags such as `<file_operation>` and `<network_request>` tell the model "this block is about file operations" and "this block is about network requests"—precise semantics that make the model's handling more accurate.
+
+Used together, the prompt reads clearly for humans and parses precisely for the model.
+
 ### Process-Driven vs. Rule Stacking: The "Organization" of the System Prompt
 
 Methods that reduce cognitive load for humans are equally effective for large language models—because the model has learned human language and reasoning patterns during training. Imagine giving a new team member a manual with hundreds of scattered rules, no flowcharts, and no priority instructions—even a highly capable person would be confused: when multiple rules apply simultaneously, which one should be chosen? And what about situations not covered by the rules?
 
 In contrast, a process-driven prompt functions like an effective training manual, providing a clear Standard Operating Procedure (SOP):
 
-```
+```text
 File Processing Standard Operating Procedure:
 
 Step 1: Validation
@@ -663,7 +709,7 @@ Why does appending at the end not break the cache? This follows directly from th
 
 One point is easy to misunderstand: a discovered schema is appended only once. It then remains at its original position in the trajectory, and later messages are added **after** it; the schema is not moved to the end again on every turn.
 
-The mechanism's other constraint is model capability: the model must have been trained on the pattern of "tool definitions appearing mid-conversation"—which is why only newer models (e.g., GPT-5.4+, the Claude 4.5+ series) currently support it, and why self-hosted open-source models need dedicated training. The full discussion of tool discovery is in Chapter 4's "Proactive Tool Discovery" section.
+The mechanism's other constraint is model capability: the model must have been trained on the pattern of "tool definitions appearing mid-conversation"—which is why only newer models (e.g., GPT-5.4+, the Claude 4.5+ series) currently support it, and why self-hosted open-source models need dedicated training. The full discussion of tool discovery is in Chapter 4's "What to Do When There Are Too Many Tools" section.
 
 > **Experiment 2-4 ★★: Ablation Study in Prompt Engineering**
 >
@@ -729,52 +775,58 @@ This is the natural evolution from static prompt engineering to dynamic prompts:
 The core idea of Agent Skills is to modularize the Agent's capabilities into independent, loadable knowledge packages[^ch2-3]. Each Skill is essentially a collection of prompts and files containing specialized domain guidance, like an operating manual for a specific task. Unlike the traditional approach of placing all instructions into a single system prompt, Skills use Progressive Disclosure: first show the Agent a table-of-contents summary, then load the full content only when needed. Instead of loading every domain manual into context at once, the framework provides a directory and lets the Agent retrieve the relevant manual as needed.
 
 [^ch2-3]: Anthropic, "Equipping Agents for the Real World with Agent Skills", 2025.
+[^ch2-codex-skills]: OpenAI, "Build skills," Codex documentation. https://developers.openai.com/codex/skills/
 
-**Layer 1 (Metadata)**: Each Skill must include a `SKILL.md` file that starts with YAML frontmatter (a metadata block at the top of the file delimited by `---`, similar to a book's copyright page), containing `name` and `description` fields. The Agent framework scans all installed Skills at startup and injects their `name` and `description` into the dialogue context. This usually costs only a few hundred tokens, and the trade-offs around injection location are discussed in the next subsection. The goal is to let the Agent discover which specialized capabilities are available without loading all Skill content into context.
+**Layer 1 (Metadata)**: Each Skill should provide a `SKILL.md` file that starts with YAML frontmatter (a metadata block at the top of the file delimited by `---`, similar to a book's copyright page), containing `name` and `description` fields. The catalog should be visible to the Agent before the main body is loaded, so it can decide whether a capability is relevant without paying the full context cost for every Skill. Runtimes may place the catalog in different context layers; its shared purpose is discoverability, not carrying the complete domain workflow.
 
-Routing depends heavily on the metadata's `description` field. It should be concise enough to keep the always-loaded token count low, but written as a routing rule rather than a feature summary. The clearest pattern is "Use when / Do not use when," supported by **negative examples** that identify situations in which the Skill should not be triggered. Negative examples are not optional; they are essential to accurate Skill routing. Broad descriptions such as "help with backend" activate on unrelated tasks, while explicit exclusions make routing substantially more precise. For routing purposes, "when to use me" matters far more than "what I can do."
+The metadata's `description` field is important for routing. Keep it short enough to limit the always-present token count, but write it as a routing condition rather than a feature summary. It can state clear "Use when" and "Do not use when" boundaries and include representative **negative examples** to reduce false triggers from broad matches. This is writing advice for routing prompts, not an additional required field. A description such as "help with backend" can activate on almost any backend task; an effective description says when the Skill should be used, not merely what it can do.
 
-**Layer 2 (Core Workflow)**: When the Agent determines that a specific Skill is needed for a task, it loads the complete `SKILL.md` via a dedicated Skill tool, and the content appears in the conversation history as a tool result. Using the PPTX Skill[^ch2-4] as an example, it contains the core workflow for handling PowerPoint files: how to extract text via markitdown (Microsoft's open-source document-to-Markdown tool), how to unzip the PPTX file to access the raw XML structure, and the path conventions for key files.
+**Layer 2 (Core Workflow)**: When the Agent determines that a specific Skill is needed, the runtime loads the complete `SKILL.md` only then. There are two ways this loading is triggered. When the user types an explicit slash command such as `/pptx`, the client intercepts and expands it locally, so the model never has to issue a tool call first. When the model reads the metadata catalog and decides on its own that a Skill is needed, it calls the dedicated Skill tool, which costs one extra ReAct round trip. Both paths land in the same place: Claude Code adds the Skill body as a user message at the invocation point, and on the model-triggered path the tool result is only a placeholder announcing that the Skill is launching, not the body itself[^ch2-cc-skill-inject]. Runtimes without a dedicated activation tool have the model read `SKILL.md` with a general file-read tool instead, and the body then enters the context as a tool result. Using the PPTX Skill[^ch2-4] as an example, it contains the core workflow for handling PowerPoint files: how to extract text via markitdown (Microsoft's open-source document-to-Markdown tool), how to unzip the PPTX file to access the raw XML structure, and the path conventions for key files.
 
 [^ch2-4]: Anthropic, "PPTX Skill", 2025. https://github.com/anthropics/skills/
+[^ch2-cc-skill-inject]: Claude Code Docs, [“How Claude Code uses prompt caching”](https://code.claude.com/docs/en/prompt-caching), “Invoking skills and commands”: “Skills and commands inject their instructions as user messages at the point of invocation.” For the division between explicit and model-driven triggering, see Agent Skills, [“How to add skills support to your agent”](https://agentskills.io/client-implementation/adding-skills-support), “User-explicit activation”: the harness intercepts the slash command and injects the content, so the model does not have to take an activation action itself.
 
 **Layer 3 (Details)**: File references allow deeper navigation into more detailed sub-documents. The main file references `html2pptx.md` (detailed workflow for creating PowerPoint from HTML templates), `reference.md` (format technical details), and others. The Agent selectively reads relevant sub-documents based on specific needs.
 
-Skills not only contain instructional documentation but can also bundle executable code tools and template files—turning them from pure knowledge transfer into operational capabilities.
+### How to Write a Usable Skill
+
+The runtime structure solves “when to load” and “how much to load”; the content still needs to turn experience into instructions a model can execute. A useful Skill should tell a new team member what task it applies to, what order to follow, when to stop and ask for confirmation, and what counts as complete.
+
+Based on the writing guidance in Baoyu's *A Visual Guide to Skills*[^ch2-baoyu-remove-ai-writing-flavor], start with four parts:
+- **Role and reader**: who the Skill serves, what task it covers, and what quality the output should meet;
+- **Core principles**: three to five important judgments, with positive and negative examples for key principles;
+- **Prohibitions**: common errors, out-of-scope actions, and confusing wording, including legitimate exceptions;
+- **References**: glossaries, templates, examples, and more detailed subdocuments. Prefer rules written as “scope + action + exception + verification” over an ever-growing list of forbidden words.
+
+A writing Skill can start from three to five pieces of your own work. Have the Agent infer word choice, sentence patterns, paragraph structure, and tone; generate a short first draft; then apply it to a real task and revise it sentence by sentence. The differences between the original and the revision are more informative than saying “make it more natural”: they show which words were removed, which long sentences were split, and where facts were added. Fold recurring changes back into the Skill, keeping positive examples, negative examples, and scope for each rule.
+
+Skills can also bundle executable code tools and template files. For example, a presentation Skill can include slide templates and scripts for parsing presentations.
 
 The value of Skills lies not only in context management but also in providing a sustainable path for accumulating domain knowledge. Each Skill is a self-contained knowledge module that can be independently developed, tested, version-controlled, and shared. This modularity transforms Agent capability expansion from centralized system prompt editing into a distributed Skill ecosystem, similar in spirit to package managers such as Python's pip or Node.js's npm. Each Skill encapsulates best practices for a specific domain. Anthropic's official Skills repository already covers document processing (PPTX, PDF, DOCX), data analysis, code generation, and other domains, allowing developers to use, customize, or create entirely new Skills.
 
-This reveals an important principle for Agent developers: **when choosing an Agent interaction mode, align with the interaction patterns the model and API are designed to support**. When building Agents with Claude, fully leverage Skills and structured system prompts; when using other models, follow the conventions optimized by that model vendor. The Agent usage patterns promoted by foundation model companies often reflect the modes those models are trained and evaluated to support.
+This reveals an important principle for Agent developers: **when choosing an Agent interaction mode, align with the model vendor's training methodology**. The Agent usage patterns promoted by foundation-model companies often reflect modes their models were specifically trained to support.
 
-### Skills Implementation Methods and Trade-offs
+[^ch2-baoyu-remove-ai-writing-flavor]: Baoyu, “Stop Using Prompts to Remove the AI Flavor; the Direction Is Wrong,” February 14, 2026. https://baoyu.io/blog/2026-02-14/remove-ai-writing-flavor
 
-After defining Skills, the next question is a concrete engineering problem: where in the context should Skill content be placed? This design decision directly affects KV Cache efficiency and the model's ability to follow the Skill's instructions. In principle, there are two straightforward approaches, but both have significant costs. Production systems such as Claude Code use a third approach that avoids the main drawbacks of both.
+### Skills in Context
 
-**Approach One: Inject into System Prompt (system message)**. Append Skill content directly to the system prompt. The model's instruction-following ability is strongest for content in the system position (because training heavily uses instructions in this position), so Skill execution is most effective. The problem: each time a new Skill is loaded, the system message content changes, invalidating the KV Cache prefix. If the Agent frequently switches Skills (e.g., a task requires first using a search Skill, then a document Skill), the cache is repeatedly invalidated, significantly increasing latency and cost.
+When assessing Skill context cost, separate the metadata catalog from the full Skill instructions:
 
-**Approach Two: Read as a regular file, with content appearing in the middle of the context**. The Agent reads the Skill file via a generic file-reading tool, and the file content appears as a tool result in the conversation history—i.e., the middle of the context. This approach does not affect the KV Cache at all (the system prompt remains unchanged), but it places higher demands on the model's **instruction-following** ability: the model needs to accurately identify and follow the instructions within the Skill in the middle of a long context, rather than treating it as ordinary tool output to reference. In practice, different models vary significantly in their support for this mode—Claude performs most reliably because its training heavily uses instruction-following data in the middle position; other models often degrade when following instructions injected in the middle of the context.
+- **Standard-level principle**: the mechanism defines the loading sequence, not message roles. The catalog must be discoverable before the body, and the body loads on demand after a Skill is selected. Message roles, wrappers, and whether the catalog is rebuilt each turn are Harness choices.
+- **Claude Code conceptually**: it exposes a small catalog as runtime context and appends the full instructions at the point where the Skill is invoked. “System prompt” can describe the logical stable instruction layer, but it should not be read as a claim that every client uses an API `system` role. Figure 2-12 shows the model-triggered case, where the trajectory contains the full round trip: a `Skill(skill: "pptx")` tool_use, a placeholder tool_result, and then the body appended as a separate user message. When the user types `/pptx` directly, the client expands it locally, so that pair of tool messages never appears and only the final user message remains.
+- **Codex conceptually**: during turn-context construction it renders the Skills catalog in developer context; an explicitly selected Skill is injected as user context marked with `<skill>`. Skills from other sources may be read on demand through tools.[^ch2-codex-skills]
 
-**Approach Three (Production Implementation): Metadata provided as dynamic context, full content loaded on demand via a dedicated tool**. Claude Code's core approach is to separate Skill "routing" from "execution": the model first receives the metadata for the available Skills and uses it to determine whether the current task requires a particular Skill; only after a Skill is selected does it load the complete `SKILL.md`. This design balances context overhead, Prompt Cache reuse, and instruction-following ability.
-
-- **Metadata list**—the `name` + `description` of all installed Skills (usually only a few hundred tokens)—is made available to the model in advance, allowing it to determine which Skills are relevant to the current task. Importantly, **the message role used to inject this metadata into the context is an implementation detail of the Claude Code Agent Harness, not a fixed requirement of the Agent Skills mechanism itself**. In some historical versions of Claude Code, this type of dynamic context appeared as user-role content wrapped in `<system-reminder>`; newer implementation paths that support mid-conversation system messages can instead use an appended system-role context block. Regardless of the representation, the common goal is to make the model aware of the currently available Skills without repeatedly rewriting the stable context prefix.
-
-- **Full content**—once the model determines from the metadata that a Skill is suitable for the current task, it reads the corresponding `SKILL.md` on demand through the Skill tool, and the content then enters the current execution context. This avoids loading the complete instructions for every Skill at the beginning of the session, reducing the amount of irrelevant context.
-
-It is therefore important to distinguish two levels: **"Skill metadata must be visible to the model in advance" is a relatively stable mechanism, while "user role, system role, or a wrapper such as `<system-reminder>`" is a version-specific implementation choice.** `<system-reminder>` is not a protocol format exclusive to Agent Skills; it is one representation used by the Claude Code Agent Harness to inject dynamic system context.
-
-Note that **dynamically adding system context during a conversation is not unique to Skills**. In addition to metadata about available Skills, an Agent may need to keep the model informed of the current task state, runtime environment, or other dynamic information. The next section on the **Agent Status Bar** will explore this mechanism further, and the Skill metadata list can be viewed as one concrete example.
-
-The following two figures show the effect of this design from two perspectives: the position of Skills in the trajectory and the evolution of the KV Cache.
+Harnesses evolve quickly, so their concrete representations may change. The stable design principle is **a small catalog kept discoverable and the full body loaded on demand**. This is what lets Skills combine dynamic loading with controlled context cost. The following two figures show the design from two perspectives: the position of Skills in the trajectory and the evolution of the KV Cache. To make the effect of this design concrete, the following two figures trace, from two perspectives, where Skills sit in the trajectory and how the KV Cache evolves.
 
 ![Figure 2-12: Complete Structure of the Agent Trajectory After Enabling Skills](images/fig2-12.svg){height=55%}
 
 ![Figure 2-13: Evolution of KV Cache as the Agent Trajectory Grows](images/fig2-13.svg)
 
-A common misconception needs clarification: "KV Cache-friendly" does not mean "zero cost." The first insertion of those few hundred to few thousand tokens still incurs a write cost (as mentioned earlier, Prompt Cache writes may even be billed at a premium). The precise meaning is **write once, benefit repeatedly**: to make the model aware of a Skill's existence or a piece of document content, that information must enter the cache at least once. Claude Code pays this cost only once, with no repetition for the rest of the session. Compare this with placing the same information into the system prompt: every update invalidates the downstream trajectory and forces cache creation again, often for tens or hundreds of thousands of tokens. That is the truly cache-unfriendly case.
+A common misconception needs clarification: “KV Cache-friendly” does not mean “zero cost.” The catalog must be processed the first time it enters a request, and loading a Skill body adds computation when it is first needed; later requests can reuse the cache while the established prefix remains stable. Harnesses differ in how they rebuild the catalog, but the shared benefit is that they need not preload every Skill body or rewrite established context whenever a new Skill is invoked.
 
 ### Relationship Between Skills and Tools
 
-From a context-management perspective, the Skills mechanism is highly KV Cache-friendly. If all specialized code-tool definitions were placed in the system prompt, their proliferation would consume many tokens and interfere with the model's attention. Under the Skill + generic executor model, however, the tool set remains small—as Chapter 5 shows, only seven core tools are required—and Skill content is loaded on demand through the progressive-disclosure mechanism described above, without affecting the cached prefix. Chapter 4 provides a detailed comparison and selection framework for these two forms, while Chapter 8 examines how an Agent undergoing continuous evolution decides whether an experience should be encoded as knowledge, instructions, a program, or model parameters.
+From a context-management perspective, the Skills mechanism is highly KV Cache-friendly. If all specialized code-tool definitions were placed in the system prompt, their proliferation would consume many tokens and interfere with the model's attention. Under the Skill + generic executor model, however, the tool set remains small—as Chapter 5 shows, only seven core tools are required—and Skill content is loaded on demand through the progressive-disclosure mechanism described above, without affecting the cached prefix. Chapter 4 provides a detailed comparison and selection framework for these two forms, while Chapter 9 examines how an Agent undergoing continuous evolution decides whether an experience should be encoded as knowledge, instructions, a program, or model parameters.
 
 > **Experiment 2-6 ★★: Generate a Presentation from a Paper Using Agent Skills**
 >
@@ -791,13 +843,19 @@ From a context-management perspective, the Skills mechanism is highly KV Cache-f
 > **Acceptance Criteria**: The generated PowerPoint covers the paper's main content (title page, problem background, method overview, key results, conclusion), includes at least 3 figures extracted from the paper that are consistent with the text descriptions, and has correct formatting that opens properly in PowerPoint or compatible software.
 >
 
+> **Experiment 2-7 ★★: Creating a "De-AI-ified" Writing Skill from Personal Samples**
+>
+> **Experiment Goal**: Generate a loadable, inspectable writing Skill from a small set of human-written samples, and observe whether it can reproduce the author's main stylistic preferences in new articles.
+>
+> **Experiment Description**: Prepare three to five original articles and let a runtime that supports Agent Skills generate a first-draft `SKILL.md`. Pick a new topic and draft an article; after the author edits it by hand, compare before/after and write the stable patterns back into the Skill. Acceptance only requires that the Skill have clear trigger conditions, three to five principles with examples, a scope, and exceptions — without treating a single subjective judgment as a universal rule.
+>
+> **What This Experiment Shows**: The value of a Skill lies in externalizing personal experience into instructions that load on demand. A short, readable first draft that survives a real task is a better starting point for later iteration than listing dozens of rules up front.
+
 ## Agent Status Bar: Managing Trajectories with Meta-Information
 
 ![Figure 2-14: Agent Status Bar Architecture](images/fig2-14.svg)
 
-The Skills section introduced the "user-role meta message at the end of the context" as a general channel for injecting meta-information. The Skill metadata list is one use of that channel. This section develops the mechanism more systematically: the Agent framework can use it to synchronize dynamic runtime state with the model. This mechanism is called the **Agent Status Bar**.
-
-The prompt engineering discussed earlier solved the problem of "what static instructions to give the model." However, during actual execution, the Agent also needs to track its own state and task progress dynamically—this is where the Agent Status Bar comes in.
+The previous section focused on which capabilities Skills make available on demand. This section addresses a separate problem: how the Agent can keep the model aware of task progress, environment changes, and tool-call counts. The Agent framework packages this dynamic information as structured state and injects it into the context; this mechanism is called the **Agent Status Bar**.
 
 When building production-grade Agent systems, relying solely on the native capabilities of LLMs is often insufficient. Agents executing complex tasks can fall into failure modes such as infinite loops, loss of state, and goal drift. The root cause is often that the model lacks a clear view of the current environment state and task progress. The Agent Status Bar addresses this by embedding structured meta-information in the context, giving the model explicit state signals it can use during decision-making.
 
@@ -821,7 +879,7 @@ In long-context scenarios, the model's attention resources are limited. As conte
 
 The Agent Status Bar addresses this problem by deliberately placing key meta-information in a structured format at the end of the context. Because this information is close to the tokens the model is about to generate, it is more likely to receive attention. This is a form of attention steering through placement.
 
-> **Experiment 2-7 ★★: Verifying the Effect of the Agent Status Bar via Attention Visualization**
+> **Experiment 2-8 ★★: Verifying the Effect of the Agent Status Bar via Attention Visualization**
 >
 > Based on the `attention_visualization` project, we designed a controlled experiment where a customer service Agent handles a refund request. The Agent has already called Xfinity 3 times, interspersed with web searches. The user asks: "Can you call them again to follow up?"
 >
@@ -840,27 +898,13 @@ The Agent Status Bar addresses this problem by deliberately placing key meta-inf
 > Attention is highly concentrated on the status bar information. The reasoning process directly uses the already distilled information, no longer computing statistics from the raw data. For a small model like Qwen3-0.6B, Control Group A frequently violates the constraint and continues calling, while Control Group B consistently adheres to the constraint.
 >
 
-Experiment 2-7 is a small qualitative demonstration that provides intuition. To quantify the value and limits of this "precompute and access directly" approach, the author and collaborators evaluated it with a dedicated benchmark[^ch2-7]. This approach has a general name: **Context Distillation**. The Agent Status Bar is its most common form. The results:
+Experiments show[^ch2-8] that giving a model a **precomputed status bar** can bring **the accuracy of smaller open models close to that of frontier large models**. In addition, **a status bar can greatly improve reasoning efficiency**, reducing the reasoning tokens, latency, and cost of each Agent iteration by roughly an order of magnitude. Without a status bar, the reasoning required for each query **keeps growing** as the context gets longer; with one, it becomes **roughly constant**.
 
-- **For weak models, a precomputed status bar recovers accuracy.** The weakest models saw accuracy gains of 40 to 54 percentage points, and on these tasks a local 2B model even matched a frontier model that had no status bar.
-- **For strong models that already answer correctly, it improves efficiency.** The same status bar reduces the reasoning effort, latency, and cost per query by roughly an order of magnitude (reasoning tokens are cut by 80–90% or more).
-- The most fundamental change is: without a status bar, the reasoning effort per query **grows continuously** as the context lengthens; with a status bar, it becomes **essentially constant**. No matter how long the context gets, the model only "glances" at those few status entries.
-
-However, **how the precomputation is performed matters greatly**. Three lessons:
-
-**1. Maintain the status bar with code, not with an LLM.** It may seem natural to ask another LLM to read the history and summarize the status bar, but the experiment found that this performed poorly. A 20-line regular-expression function achieved ground-truth-level accuracy, whereas a frontier model that processed the full history in one batch produced many incorrect entries and reduced downstream accuracy below the no-status-bar baseline. Asking an LLM to summarize a long history in one pass merely moves the original context-scanning problem elsewhere. A viable alternative is to **use code whenever possible**; if an LLM is necessary, have it **extract items one by one and then aggregate them with code, rather than summarizing the entire history in a single pass**.
-
-**2. Do not delete the original context.** The status bar is a **lossy projection** of the original context: it only precomputes the dimensions you *anticipate* will be relevant. If the status bar is sufficient, as it is for tasks such as counting and state tracking, the original records can be deleted and only the status bar retained, saving many tokens. But if even one question falls outside the dimensions represented in the status bar, retaining only the status bar can cause accuracy to collapse.
-
-**3. Monitor the accuracy of the status bar as a first-line production metric.** The experiment found that **the model almost unconditionally trusts the status bar**. If it says "called 3 times," the model accepts that value without checking or recalculating it. This trust makes the status bar effective, but it also allows errors to flow **directly** into the final answer. This also means the **status bar poisoning** risk discussed earlier deserves serious attention.
-
-[^ch2-7]: Li, Bojie and Noah Shi. *Distill, Don't Retrieve: Inference-Time Context Distillation for LLM Agent Reasoning.* 2026. https://01.me/research/context-distillation
-
-Seen from this perspective, the Loop Engineering introduced at the end of Chapter 1's evolutionary arc, and developed further in Chapter 10 alongside multi-agent collaboration systems, turns this third axis of interaction into engineering practice. Each iteration makes real progress only when verification writes observations of the external world back into the context. Without that step, the model merely rearranges existing information. Thus, the claim that "the verifier, not the model, is the bottleneck" and the finding that the measuring instrument must be grounded in real observations express the same principle.
+[^ch2-8]: Li, Bojie and Noah Shi. *Distill, Don't Retrieve: Inference-Time Context Distillation for LLM Agent Reasoning.* 2026. https://01.me/research/context-distillation
 
 ### Composition of the Agent Status Bar
 
-Based on the theoretical foundation above, the Agent Status Bar includes the following types of information:
+The Agent Status Bar includes the following types of information:
 
 **Task Planning**: When an Agent handles complex, multi-step tasks, the trajectory can become very long. The Agent tends to focus excessively on the current local sub-task, forgetting the user's original request, core constraints, and subsequent work. Placing a TODO list that breaks the task into clear steps at the end of the trajectory continually reminds the model of its current progress and future goals, helping align its actions with the overall plan.
 
@@ -868,9 +912,7 @@ Based on the theoretical foundation above, the Agent Status Bar includes the fol
 
 **Current Environment Observation Summary**: Includes dynamic environment information (system time, working directory, etc.), abnormal operation alerts ("This tool has been called N times repeatedly"), and the transformation from implicit state to explicit observation. This design principle also applies to human interfaces—both Command Line Interfaces (CLI) and Graphical User Interfaces (GUI) aim to let users clearly perceive the current state of the system.
 
-**Available Capability List**: When the Agent framework supports plugin-based capability extensions (like the Skills system from the previous section), the metadata list of all installed Skills also goes through this same end-of-context injection channel. It tells the model which specialized capabilities are currently available. It changes infrequently (only when the user installs or uninstalls a Skill), and its incremental sending mechanism was detailed in the previous Skills section, so it will not be repeated here.
-
-Side-channel information and the available capability list usually do not change after being added, making them cache-friendly because they do not invalidate the cached prefix. Task planning and environment state are dynamic and must be appended to the end of the context as special user messages, then updated as the task progresses. The update method directly affects KV Cache cost, as discussed below.
+Side-channel information for an event is usually appended together with that event; task planning and environment state, by contrast, are updated continuously as the task progresses. How this dynamic information gets written into the conversation history bears directly on the cost of the KV Cache, which the following discussion takes up alongside the concrete message structure.
 
 ### Specific Position of the Agent Status Bar in the Context
 
@@ -880,7 +922,7 @@ An important implementation detail is that the Agent Status Bar is inserted at t
 
 Below is the actual message list constructed by the Agent framework during the Nth API call:
 
-```
+```text
 messages: [
   { role: "system",    content: "You are a customer service assistant..." }  ← Fixed (KV Cache cached)
   { role: "user",      content: "Help me cancel my Xfinity plan" }  ← Original user request
@@ -907,13 +949,15 @@ This design applies the core principle from the KV Cache section to the status b
 
 "Appending does not break the cache" only holds for a single injection. Status naturally changes over time: TODO items are completed, tool counts increase, and previous status messages become outdated. There are two ways to update the status bar, each with different cache costs:
 
-**Implementation 1: Replace each round.** Before each API call, remove the previous round's status message from the message list and append the latest status at the end. This keeps only one current status in the context. The cost is that removing the old status invalidates all cached content after its position, which is the same invalidation mechanism discussed in the "dynamic timestamp" section of this chapter. The difference is that because the status message is near the end of the context, the invalidation range is limited to the most recent few rounds of messages rather than the entire prefix.
+**Implementation 1: Replace each round.** Before each API call, remove the previous round's status message from the message list and append the latest status at the end. This keeps only one current status in the context. The cost is that removing the old status invalidates all cached content after its position, which is the same invalidation mechanism discussed in the "dynamic timestamp" section of this chapter. The difference is that because the status message is near the end of the context, invalidation is limited to messages added since the previous status injection—usually one round—rather than the entire prefix.
 
 **Implementation 2: Persistent appending.** Once injected, the status message remains permanently in the trajectory, and a new status is appended at the end each round. Claude Code's `<system-reminder>` uses this approach: historical status messages remain in the transcript and are never deleted or modified. This method is fully cache-friendly because messages are only appended, never changed, so the prefix remains stable. The cost is that outdated statuses accumulate in the context, consuming tokens and requiring the model to rely on the latest status while ignoring obsolete ones.
 
-The rule of thumb is: **when status updates are frequent and the trajectory is long, choose Implementation 2**. Replacing the status each round repeatedly invalidates cache entries over a long trajectory, which can cost more than carrying outdated status messages. **When the trajectory is short or a single status message is large** (e.g., a complete TODO list plus environment snapshot), **choose Implementation 1**. Cache invalidation over the last few rounds is cheap, and the context remains clean and unambiguous.
+The choice depends on trajectory length, status size, the suffix added between updates, and the expected number of updates. **Choose Implementation 2 when the status is small, many messages are produced between updates, and the session length is bounded**—keeping old statuses is usually cheaper than repeatedly recomputing a long suffix. **Choose Implementation 1 when the status is large, updates are frequent, or the trajectory is long**—it usually invalidates only the short suffix after the previous injection while preventing stale statuses from accumulating.
 
-> **Experiment 2-8 ★★: Several Useful Agent Status Bar Techniques**
+A rough model gives the break-even point. Let each status contain $S$ tokens, let $R$ tokens be added between updates, let $N$ be the expected number of updates, and let cached input cost $\alpha$ times regular input. Ignoring costs shared by both approaches, $C_{\text{replace}} \approx (N-1)(1-\alpha)R$ and $C_{\text{append}} \approx \alpha S N(N-1)/2$. Thus, prefer Implementation 2 when $\alpha SN/2 < (1-\alpha)R$; otherwise prefer Implementation 1. This estimate excludes context occupancy and ambiguity from stale states, so the final choice should also reflect the provider's cache pricing and measured hit rate.
+
+> **Experiment 2-9 ★★: Several Useful Agent Status Bar Techniques**
 >
 > The `agent-status-bar` experimental framework implements five status bar techniques, each of which can be independently enabled or disabled:
 >
@@ -934,21 +978,29 @@ The rule of thumb is: **when status updates are frequent and the trajectory is l
 
 The Agent Status Bar has a practical advantage: all meta-information appears in the context in a human-readable form, allowing developers to inspect what information the Agent received and what decisions it made. More importantly, the approach requires no changes to the model. No fine-tuning is needed; it works with any language model.
 
+Maintaining the status bar requires attention to two points:
+
+1. **Maintain the status bar with code whenever possible. If an LLM is unavoidable, extract items one by one and aggregate them with code; never ask it to perform a batch count in one shot**. Experiments find that **models trust the status bar almost unconditionally**: write “3 calls made,” and the model accepts three without recalculating. LLMs are already prone to counting errors, which also makes the **status-bar poisoning** risk mentioned earlier worth taking seriously.
+
+2. **Do not delete the original context**. A status bar is a **lossy projection** of the original context: it precomputes only the dimensions you expected to be queried. If the bar is sufficient—as it is for counting and state tracking—you can delete the raw record and save many tokens. But if even one question falls outside the dimensions represented there, accuracy collapses when only the status bar remains.
+
+The Agent Status Bar is one form of **context compression**. The next section introduces additional context-compression techniques.
+
 ## Context Compression Strategies
 
 The previous sections discussed what to include in context: prompt engineering determines what to write, Skills determine what to load on demand, and the Agent Status Bar determines what meta-information to inject. As multi-turn interactions deepen, however, the context keeps expanding. This section turns to the opposite problem: **how to reduce content in the context**—when to compress, how to compress, and why compression can be useful even before the context window is full.
 
 ### Why Compression Is Needed: Not Just a Length Issue
 
-Context compression has two distinct motivations. Understanding both is crucial for designing an effective compression strategy.
+Context compression has three distinct motivations. Understanding all three is crucial for designing an effective compression strategy.
 
 **First, addressing length and cost constraints.** This is the most intuitive reason: the context window is limited (e.g., 128K tokens), tool call results routinely run to tens of thousands of characters, and a few rounds of interaction can fill the window and cut the task short. More tokens also mean higher API costs and sharply higher inference latency.
 
-**Second, improving reasoning quality—summarized knowledge is more useful to the model than raw information.** This motivation is deeper and easier to overlook. Even if the context window is large enough, adding all raw information to the context is not always the best choice.
+**Second, improving reasoning quality—summarized knowledge is more usable by the model than its raw form.** This motivation runs deeper and is more easily overlooked. Even when the context window is large enough, piling all the raw information into the context is not the optimal choice: the raw results of a dozen search rounds are scattered throughout the context, so at every decision the model has to search repeatedly through tens of thousands of tokens for the relevant fragments, its attention is dispersed, and key information is easily missed. If instead a single LLM call first summarizes what has accumulated into a structured form—"Known so far: A is…, B is…, still missing information about C"—then subsequent reasoning can use that distilled representation directly. The next section explains the mechanism behind this.
 
-Consider a concrete example: during a complex task, an Agent accumulates information on a topic through 10 web searches. These search results are scattered in their raw form throughout the context—the results from round 2 are near the beginning, and the results from round 9 are near the end. When the Agent must make a final decision from all this information, it has to retrieve relevant fragments scattered across tens of thousands of tokens. Its attention becomes diffuse, and it can easily miss key information.
+**Third, mitigating the model's context anxiety**[^ch2-7]. When a model believes its context window is about to run out, it may start wrapping up before the task is complete. Compressing the context well before the window is close to full may improve the quality of the model's decisions.
 
-After the 10th search, however, a single LLM call could produce a structured summary of the accumulated information: "Currently known: A is..., B is..., information on C is still missing." The model can then use this refined knowledge representation in subsequent reasoning, without re-extracting it from the raw data.
+[^ch2-7]: Prithvi Rajasekaran, [“Harness design for long-running application development”](https://www.anthropic.com/engineering/harness-design-long-running-apps), Anthropic Engineering, 2026.
 
 ### The Internal Mechanism of In-Context Learning: Retrieval, Not Reasoning
 
@@ -959,13 +1011,7 @@ A simple example makes the idea of "retrieval, not reasoning" concrete. Suppose 
 > Cage 1: Black cat. Cage 2: White cat. Cage 3: Black cat. Cage 4: Black cat. Cage 5: White cat.
 > ... (100 cages total, 90 black cats, 10 white cats)
 
-When you ask the model, "How many black cats and white cats are there?" what happens?
-
-If reasoning is not enabled, the model will find it difficult to give the correct answer directly—because the attention mechanism is good at **looking up** ("What cat is in cage 37?"), not **aggregation** ("How many black cats are there in total?"). The latter requires traversing all records and maintaining a counting state, which is essentially reasoning, not retrieval.
-
-If reasoning is enabled, the model can obtain the correct answer by counting one by one. The cost is that every time this question is asked, it must start counting from scratch, generating many reasoning tokens. In an Agent scenario, if such statistical information needs to be used repeatedly (e.g., for every decision), the cumulative reasoning cost becomes very high.
-
-However, if we summarize the records in advance and write "Current statistics: 90 black cats, 10 white cats" directly into the context, the model can retrieve the conclusion without repeating the count. **This is the second value of compression: turning conclusions that require reasoning into knowledge that can be directly retrieved.**
+When you ask "How many black cats and how many white cats are there?", a model without chain-of-thought enabled will struggle to answer correctly: **lookup** ("Which cat is in cage 37?") is where attention excels, whereas **aggregation** ("How many black cats are there in total?") requires traversing all the records and maintaining a counting state—essentially reasoning rather than retrieval. Enabling chain-of-thought can of course get the count right, but it has to start counting from scratch every time it is asked; in Agent scenarios such statistics are often used repeatedly, so the accumulated reasoning cost is high. If instead you summarize once in advance and write "Current statistics: 90 black cats, 10 white cats" directly into the context, the model retrieves that conclusion immediately. **This is the second value of compression: turning conclusions that require reasoning into knowledge that can be retrieved directly.**
 
 In addition, long contexts reduce retrieval precision. Even when the context window is far from full, the Agent may suddenly fail to find key information or repeatedly focus on a problem that has already been solved. This phenomenon is known as **Context Rot**.
 
@@ -973,7 +1019,7 @@ Context rot is different from context overflow (running out of window space): ov
 
 This reveals the design principle of context compression: rather than expecting the model to learn automatically from lengthy context, we should distill that knowledge explicitly. Although this requires additional computation for summarization, it produces compact, information-dense representations. **Do not make the model search passively through vast amounts of raw material; provide refined, structured knowledge instead.**
 
-From this perspective, in-context learning is more like a rapid adaptation mechanism than true learning. It allows the model to quickly adjust its behavior during inference to suit a specific task, but this adjustment is temporary and shallow, disappearing after the session ends. Recent theoretical research[^ch2-6] supports this judgment: when the model sees examples in the context, its behavior is as if it has been "temporarily customized"—without changing the model parameters, but with an effect similar to a small, specialized training session. This explains why few-shot examples in the prompt engineering section can significantly improve output quality, and also why this improvement does not accumulate across sessions—it is fundamentally different from true parameter training.
+From this perspective, in-context learning allows the model to quickly adjust its behavior during inference to suit a specific task, but this adjustment is temporary and shallow, disappearing after the session ends. Recent theoretical research[^ch2-6] supports this judgment: when the model sees examples in the context, its behavior is as if it has been "temporarily customized"—without changing the model parameters, but with an effect similar to a small, specialized training session. This explains why few-shot examples in the prompt engineering section can significantly improve output quality, and also why this improvement does not accumulate across sessions.
 
 [^ch2-6]: Benoit Dherin et al., "Learning without training", 2025.
 
@@ -989,7 +1035,7 @@ The key is understanding the **timing and location** of compression. Compression
 
 ![Figure 2-16: Comparison of Context Compression Strategies](images/fig2-16.svg)
 
-> **Experiment 2-9 ★★★: Comparison of Context Compression Strategies**
+> **Experiment 2-10 ★★★: Comparison of Context Compression Strategies**
 >
 > We designed a research task: identify and track the employment status of OpenAI co-founders. This task requires multi-step information aggregation, the length of search results varies greatly (from a few thousand to over a hundred thousand characters), and there are clear success criteria. Using Kimi K3 (a reasoning model with a native context of about 1 million tokens; this experiment deliberately limited the context budget to a 128K window to trigger compression), we implemented six strategies:
 >
@@ -997,14 +1043,14 @@ The key is understanding the **timing and location** of compression. Compression
 >
 > **Strategies 2 & 3: Non-Task-Aware Compression** — Individual Summarization generates a 2–3 paragraph summary for each search result independently, with a compression ratio of 10.9% (in this book, compression ratio refers to "compressed volume / original volume"; a smaller number means more aggressive compression). It can complete the task but requires 12 iterations and 276,608 tokens. The main problem is information fragmentation—multiple pages repeatedly describe the same event, wasting context space. Combined Summarization merges all results into a single comprehensive summary, with a compression ratio of 4.3%, requiring 10 iterations and 93,449 tokens. However, when the input is extremely long, it must be truncated, potentially losing information at the end. The common flaw of both is a lack of semantic understanding, making it impossible to distinguish the relevance of information.
 >
-> **Strategy 4: Context-Aware Compression** — The core innovation is incorporating the current query intent and accumulated information into the compression decision process. By specifying "Given the search query: {query}" and "Current context: {context}" in the compression prompt, the model is guided to generate targeted summaries. The result requires only 7 iterations and 40,157 tokens, with an overall compression ratio of about 3.0%. In one compression instance, compressing 147,877 characters to 1,963 characters (about 1.3%) still retained key information like founder names and position changes; subsequent searches could intelligently extract key information like position changes and new companies, filtering out irrelevant historical background and duplicate content. This success is based on a key insight: in multi-step tasks, the required information density and type vary at different stages—early stages need broad information gathering, middle stages need precise fact verification, and later stages need comprehensive information synthesis. Context-aware compression maximizes information value by dynamically adjusting the focus of compression.
+> **Strategy 4: Context-Aware Compression** — The core innovation is incorporating the current query intent and accumulated information into the compression decision process. By specifying "Given the search query: {query}" and "Current context: {context}" in the compression prompt, the model is guided to generate targeted summaries. The result requires only 7 iterations and 40,157 tokens, with an overall compression ratio of about 3.0%. In one instance, roughly 150K characters were compressed to 2K while retaining the key information needed by the later task, such as founder names and position changes.
 >
-> **Strategy 5: Context-Aware with Citations** — Adds information provenance to intelligent compression, with each fact accompanied by a source URL citation marker. Token usage increases to 222,992, with a compression ratio of 4.1%, but the citations enable verification. This combines lossy semantic compression with lossless indexing: although the content is compressed, retained source links allow the system to return to the original material.
+> **Strategy 5: Context-Aware with Citations** — Adds information provenance to intelligent compression, with each fact accompanied by a source URL citation marker. The content is semantically compressed (lossy), but retaining source links provides a lossless index that can theoretically return to the original information at any time.
 >
 > **Strategy 6: Adaptive Windowing** — Based on a key insight: early in the task, context space is abundant, so there is no need to rush compression. The compression mechanism is only activated when approaching the capacity limit, thereby preserving the integrity of the original information as much as possible. The specific implementation includes three core mechanisms:
 >
-> - **Threshold Trigger**: Continuously monitors context usage. Compression is activated only when the prompt token count exceeds 80% of the window (102,400 tokens for a 128K window).
-> - **Batch Compression**: When triggered, compresses all unmarked tool results at once. For example, around the fourth iteration, when the context is detected to exceed the 102,400 token threshold (triggered at approximately 135,600 tokens in practice), all 10 uncompressed tool messages are compressed immediately.
+> - **Threshold Trigger**: Continuously monitors context usage and activates compression only when the prompt token count exceeds 80% of the window.
+> - **Batch Compression**: When triggered, compresses all unmarked tool results at once. For example, after detecting that the context exceeds the 102,400-token threshold, it immediately compresses all 10 uncompressed tool messages
 > - **Duplicate Prevention**: Adds a `[COMPRESSED]` marker to ensure compressed content is never processed again.
 >
 > Although the total token usage is relatively high (174,601), the first few iterations retain the complete original information, providing maximum flexibility for broad initial information gathering.
@@ -1026,26 +1072,16 @@ The experiment above demonstrates the performance differences among compression 
 
 ### Design Principles for Compression Strategies
 
-We have already analyzed the two motivations for compression—controlling length and improving reasoning quality—and the internal mechanism by which “in-context learning is essentially retrieval.” On that basis, we can distill four principles to guide the design of specific compression strategies. The compression discussed here serves the current task; when trajectories from multiple tasks must be consolidated offline into persistent experience, the problem becomes one of continuous evolution, as discussed in Chapter 8.
+We have already analyzed the three motivations for compression—controlling length, improving reasoning quality, and mitigating context anxiety—and the internal mechanism by which “in-context learning is essentially retrieval.” On that basis, we can distill four principles to guide the design of specific compression strategies. The compression discussed here serves the current task; when trajectories from multiple tasks must be consolidated offline into persistent experience, the problem becomes one of continuous evolution, as discussed in Chapter 9.
 
 - **Non-Uniform Distribution of Information Value**: Key decision points, such as personnel lists, have greater value than supporting evidence, such as news details; supporting evidence, in turn, has greater value than redundant noise, such as navigation bars and footer ads.
 - **Semantic Integrity**: "Sutskever left OpenAI in May 2024" cannot be compressed to "Sutskever left"—the time and company name are critical, non-negotiable information.
 - **Task Relevance**: The same content should yield different compression results for different tasks, such as "find the list of founders" versus "learn about personal background."
 - **Compression is Understanding**: Effective compression requires deep semantic understanding—capturing the core meaning of the context with more refined expression. Moreover, the results of explicit compression are reviewable and reusable across sessions.
 
-### Implications for Agent Architecture Design
-
-Research on context compression strategies points to fundamental issues in Agent system design. **Compression is Understanding**: the module responsible for compression needs language understanding capabilities close to those of the main model, forming a recursive model-call architecture. **Compression Strategy is Coupled with Task Type**: information retrieval tasks need to preserve breadth, analysis tasks need to preserve depth, and creative tasks need to preserve inspiration triggers. Future Agents should be able to select compression strategies adaptively based on the task type.
-
 Although compression adds computational overhead because each compression requires an extra LLM call, its return on investment can be extremely high relative to the resulting token-cost savings and improvements in task success. Experiments show that context-aware compression reduces token usage by over 75%.
 
-What compression most easily loses is not the details themselves, but **early architectural decisions, the reasoning behind constraints, and failed paths**—LLMs typically prioritize deleting information that seems like it could be re-acquired. In production-grade Agent systems, it is recommended to explicitly define retention priorities during compression:
-
-1.  **Architectural Decisions and Key Constraints**: Must not be summarized.
-2.  **List of Modified Files and Key Change Records**: Preserve in full.
-3.  **Verification Status** (pass/fail): Must be retained.
-4.  **Unresolved TODOs and Rollback Notes**: Must be retained.
-5.  **Tool Output**: Can be deleted, retaining only the pass/fail conclusion.
+What compression loses most easily is early architectural decisions, the reasons behind constraints, and failed paths. Therefore, **the Agent should frequently save progress in documents** rather than scattering all information through its execution history. Just as important company information belongs in documents rather than chat logs, an Agent needs the habit of writing and updating documentation. If your model lacks that habit, reinforce it through prompts and skills.
 
 ### Isolation Over Compression: Sub-Agent Context Isolation
 
@@ -1057,9 +1093,7 @@ This is essentially **replacing compression with isolation**: compression is a l
 
 ## Chapter Summary
 
-Across its many technical details, this chapter has one central argument: what you show the model, and how you organize it, often matters more to the final outcome than how capable the model itself is. The API's message structure defines the basic structure of the context; the KV Cache constrains what can and cannot be changed; prompt engineering and Agent Skills determine how to efficiently provide static instructions and dynamic knowledge to the model; the Agent Status Bar converts implicit states into directly usable explicit information; and compression strategies address the ever-expanding context problem—not just by controlling length, but by actively summarizing raw data into high-density structured knowledge.
-
-The common thread among these techniques is explicit, engineered information management: rather than letting the model search passively for clues in a vast context, proactively provide it with refined, structured state. Every technique presented in this chapter—from KV Cache-friendly context layouts to context-aware compression—is a concrete practice of using engineering to maximize information efficiency at the current boundary of model capability.
+The through-line of context engineering is explicit information management: the API message structure defines the skeleton; a stable prefix raises the KV Cache hit rate; prompts, Skills, and the status bar carry rules, on-demand knowledge, and current state respectively; and compression raises the information density of history while preserving decisions, constraints, failures, and sources.
 
 This chapter addresses state updates and context degradation **within a single task**. The next chapter moves beyond information management within a single context window to persistent knowledge systems that span tasks: user memory and knowledge bases. These systems allow the Agent to accumulate experience over time and gradually become an assistant that understands the user better, or a domain expert with more specialized knowledge.
 

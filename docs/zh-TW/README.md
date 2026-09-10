@@ -1,15 +1,19 @@
 # 深入理解 AI Agent：設計原理與工程實踐
 
-[![PDF](https://img.shields.io/badge/PDF-%E4%B8%8B%E8%BC%89-success.svg)](#-電子書) [![線上閱讀](https://img.shields.io/badge/🌐_線上閱讀-bojieli.github.io-success?style=flat-square)](https://bojieli.github.io/ai-agent-book/) [![Stars](https://img.shields.io/github/stars/bojieli/ai-agent-book?style=social)](https://github.com/bojieli/ai-agent-book) [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](../../LICENSE) [![Languages](https://img.shields.io/badge/翻譯-13%20種%20語言-informational.svg)](#-電子書)
+[![PDF](https://img.shields.io/badge/PDF-%E4%B8%8B%E8%BC%89-success.svg)](#-電子書) [![線上閱讀](https://img.shields.io/badge/🌐_線上閱讀-bojieli.github.io-success?style=flat-square)](https://bojieli.github.io/ai-agent-book/) [![Stars](https://img.shields.io/github/stars/bojieli/ai-agent-book?style=social)](https://github.com/bojieli/ai-agent-book) [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](../../LICENSE) [![Languages](https://img.shields.io/badge/翻譯-15%20種%20語言-informational.svg)](#-電子書)
 [![Trending GitHub Project of the Day](https://img.shields.io/badge/GitHub%20Trending-Project%20of%20the%20Day-orange?logo=github)](https://github.com/trending)
 
-**[中文](../../README.md) · [English](../en/README.md) · [Español](../es/README.md) · [Bahasa Indonesia](../id/README.md) · [العربية](../ar/README.md) · 繁體中文（台灣） ← 當前 · [Русский](../ru/README.md) · [Tiếng Việt](../vi/README.md) · [தமிழ்](../ta/README.md) · [日本語](../ja/README.md) · [Türkçe](../tr/README.md) · [한국어](../ko/README.md) · [Magyar](../hu/README.md)**
+**[中文](../../README.md) · [English](../en/README.md) · [Español](../es/README.md) · [Bahasa Indonesia](../id/README.md) · [العربية](../ar/README.md) · 繁體中文（台灣） ← 當前 · [Русский](../ru/README.md) · [Tiếng Việt](../vi/README.md) · [தமிழ்](../ta/README.md) · [日本語](../ja/README.md) · [Türkçe](../tr/README.md) · [한국어](../ko/README.md) · [Magyar](../hu/README.md) · [עברית](../../README.he.md) · [Português (Brasil)](../../README.ptbr.md)**
 
 > 📥 **[下載 PDF / EPUB](#-電子書)**（推薦）— 推薦使用 PDF / EPUB 離線閱讀，排版最佳；也可[線上閱讀](https://bojieli.github.io/ai-agent-book/)（支援多語言切換、章節摺疊、全文搜尋，每次 main 分支推送後自動重新構建）。
 
 **Agent = LLM + 上下文 + 工具**——本書圍繞這個核心公式，用 10 章把 AI Agent 從原理講到工程實戰。全書正文、配圖、**93 個配套實驗**全部開源，歡迎親手把實驗跑一遍。
 
-| 📚 **10 章** 正文，從基礎到生產 | 📂 **93 個** 配套專案（70+ 可獨立執行） | 🌐 **13 種** 語言：中 / 英 / 西 / 印尼 / 阿拉伯 / 繁體中文（台灣） / 俄 / 泰米爾 / 越 / 日 / 土耳其 / 韓 / 匈牙利 |
+> 📢 **2.0 版變更（相較 1.4 版）**：2.0 版將原第四章中的「非同步互動」部分與原第九章中有關「多模態 Agent」的內容合併，重組為新的第六章「互動：觀察與動作空間的擴展」。原第六章「Agent 的評估」、第七章「模型後訓練」和第八章「Agent 的持續進化」依次後移一章，現分別為第七、八、九章。
+>
+> 如果你看到的是舊版 PDF，建議[下載最新版 PDF](https://github.com/bojieli/ai-agent-book/releases/download/latest/AI-Agents-in-Depth-zh-TW.pdf)。新版還包含許多內容修正與調整，請以最新版為準。
+
+| 📚 **10 章** 正文，從基礎到生產 | 📂 **93 個** 配套專案（70+ 可獨立執行） | 🌐 **15 種** 語言：中 / 英 / 西 / 印尼 / 阿拉伯 / 繁體中文（台灣） / 俄 / 泰米爾 / 越 / 日 / 土耳其 / 韓 / 匈牙利 / 希伯來 / 葡萄牙語（巴西） |
 | :---: | :---: | :---: |
 
 ## 📖 電子書
@@ -57,10 +61,10 @@
 | 3 | 📚 **使用者記憶和知識庫** | 跨會話記住使用者、接入外部知識：使用者記憶、RAG、結構化索引、知識圖譜 | [讀](../../book-zhtw/chapter3.zhtw.md) | [12](../../chapter3/README.zh-TW.md) |
 | 4 | 🛠️ **工具** | 工具是 Agent 的雙手：MCP 協議、感知/執行/協作三類工具、事件驅動非同步 Agent、主動工具發現 | [讀](../../book-zhtw/chapter4.zhtw.md) | [8](../../chapter4/README.zh-TW.md) |
 | 5 | 💻 **Coding Agent 與程式碼生成** | 程式碼是「能創造新工具的工具」，生產級 Coding Agent 全景 | [讀](../../book-zhtw/chapter5.zhtw.md) | [13](../../chapter5/README.zh-TW.md) |
-| 6 | 🎯 **Agent 的評估** | 把表現變成可比較訊號：評估環境、指標、統計顯著性、評估驅動選型 | [讀](../../book-zhtw/chapter6.zhtw.md) | [12](../../chapter6/README.zh-TW.md) |
-| 7 | 🧠 **模型後訓練** | 預訓練/SFT/RL 三階段：何時選 SFT、何時選 RL，工具呼叫內化、樣本效率 | [讀](../../book-zhtw/chapter7.zhtw.md) | [16](../../chapter7/README.zh-TW.md) |
-| 8 | 🔄 **Agent 的自我進化** | 不改權重也能成長：經驗學習、從工具使用者到創造者 | [讀](../../book-zhtw/chapter8.zhtw.md) | [9](../../chapter8/README.zh-TW.md) |
-| 9 | 🎙️ **多模態與即時互動** | 從文字擴充套件到語音、GUI、物理世界：語音三典範、Computer Use、機器人 | [讀](../../book-zhtw/chapter9.zhtw.md) | [12](../../chapter9/README.zh-TW.md) |
+| 6 | 🎙️ **互動：觀察與動作空間的擴展** | 從模態與時序兩個維度擴展 Agent 的觀察與動作空間：非同步與事件驅動、語音互動、Computer Use 和機器人操作 | [讀](../../book-zhtw/chapter6.zhtw.md) | [14](../../chapter6/README.zh-TW.md) |
+| 7 | 🎯 **Agent 的評估** | 把表現變成可比較訊號：評估環境、指標、統計顯著性、評估驅動選型 | [讀](../../book-zhtw/chapter7.zhtw.md) | [13](../../chapter7/README.zh-TW.md) |
+| 8 | 🧠 **模型後訓練** | 預訓練/SFT/RL 三階段：何時選 SFT、何時選 RL，工具呼叫內化、樣本效率 | [讀](../../book-zhtw/chapter8.zhtw.md) | [19](../../chapter8/README.zh-TW.md) |
+| 9 | 🔄 **Agent 的持續進化** | 從執行軌跡獲得學習訊號，更新知識、指令、程式與參數 | [讀](../../book-zhtw/chapter9.zhtw.md) | [9](../../chapter9/README.zh-TW.md) |
 | 10 | 🤝 **多 Agent 協作** | 群體智慧高於個體：協作框架、上下文共享/隔離、湧現的「Agent 社會」 | [讀](../../book-zhtw/chapter10.zhtw.md) | [7](../../chapter10/README.zh-TW.md) |
 
 > 💡 **讀** = 在 GitHub 網頁直接讀章節正文（markdown）；**N** = 該章配套專案數，點選檢視程式碼。專案型別說明（✅ 可執行 / 📖 復現 / 🚧 設計）見各章 README。
@@ -69,7 +73,7 @@
 
 ## 💻 執行配套實驗
 
-專案統一支援 **Python 3.10+**。請在倉庫根目錄按章節安裝依賴；將 `ch1` 替換為 `ch2` ~ `ch10` 即可安裝對應章節：
+專案統一支援 **Python 3.11–3.13**。請在倉庫根目錄按章節安裝依賴；將 `ch1` 替換為 `ch2` ~ `ch10` 即可安裝對應章節：
 
 ```bash
 # 推薦：使用提交到倉庫的 uv.lock，取得可重現的章節環境
@@ -91,7 +95,7 @@ uv run python chapter1/context/main.py
 - `uv` 安裝方法見[官方文件](https://docs.astral.sh/uv/getting-started/installation/)；`pip` 仍受支援，但不會使用鎖定檔。
 - 各實驗現有的 `requirements.txt` 在遷移期間繼續有效，適合只執行單一專案或需要特殊版本約束的情況。
 - `all` 是不含本機訓練堆疊的 CPU 友好組合，並不代表每個實驗；`uv sync` 每次都會精確同步目前選擇，使用特殊 extra 時請合併到同一條指令，例如 `uv sync --locked --extra ch2 --extra vllm` 或 `uv sync --locked --extra ch7 --extra unsloth`；pip 對應為 `python -m pip install -e ".[ch2,vllm]"`。
-- 瀏覽器、CUDA、FFmpeg、Ollama、Playwright 瀏覽器及外部倉庫等系統依賴，請繼續參考各實驗 README。部分瀏覽器和記憶實驗需要 Python 3.11+，第 8 章部分內建第三方元件需要 Python 3.12+。
+- 瀏覽器、CUDA、FFmpeg、Ollama、Playwright 瀏覽器及外部倉庫等系統依賴，請繼續參考各實驗 README。第 8 章部分內建第三方元件需要 Python 3.12+。
 
 ## 🔑 API 金鑰
 
@@ -103,14 +107,14 @@ uv run python chapter1/context/main.py
 | **智譜 GLM** | <https://open.bigmodel.cn/> | GLM-5.2 等，Coding、Agent 能力強 | 中國大陸 |
 | **Siliconflow** | <https://siliconflow.cn/> | 各種開源模型（DeepSeek、Qwen 等），中國大陸訪問速度快 | 中國大陸 |
 | **DeepSeek** | <https://platform.deepseek.com/> | DeepSeek 官方 API | 全球 + 中國大陸 |
-| **Krill AI** | [www.krill-ai.net](https://www.krill-ai.net/register?invite=Q8D3L35725) | 一站式訪問全球及國內主流模型（OpenAI、Claude、Gemini、Grok、Kimi、GLM、DeepSeek、Qwen、Minimax） | 全球 + 中國大陸 |
+| **Krill AI** | [www.krill-code.com](https://www.krill-code.com/register?invite=Q8D3L35725) | 一站式訪問全球及國內主流模型（OpenAI、Claude、Gemini、Grok、Kimi、GLM、DeepSeek、Qwen、Minimax） | 全球 + 中國大陸 |
 | **OpenRouter** | <https://openrouter.ai/> | 一站式訪問全球及國內主流模型（GPT、Claude、Gemini、Kimi、GLM、DeepSeek、Qwen 等） | 全球 |
 
 ## 💎 贊助商
 
 感謝 **Krill AI** 贊助本專案！Krill 提供 GPT / Claude / Gemini / 多款國產模型的官方穩定極速 API 中轉服務，支援企業級客製、報銷開票、7×16h 專屬技術支援，更有獨家適配的 WebSocket 連線方式，暢享極速首字速度。
 
-Krill 為本書讀者提供特別優惠：使用[此連結](https://www.krill-ai.net/register?invite=Q8D3L35725)註冊並在儲值時填寫優惠碼「ai-agent-book」，首次購買 Codex 套餐可享 77 折優惠！
+Krill 為本書讀者提供特別優惠：使用[此連結](https://www.krill-code.com/register?invite=Q8D3L35725)註冊並在儲值時填寫優惠碼「ai-agent-book」，首次購買 Codex 套餐可享 77 折優惠！
 
 > 🧪 配套實驗的執行狀態、證據與尚未完成的驗收門檻，另行記錄於 [`EXPERIMENT_STATUS.md`](../EXPERIMENT_STATUS.md)；克隆或安裝原始碼不代表實驗已完成。
 

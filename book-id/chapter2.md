@@ -148,6 +148,8 @@ Kedua panggilan dalam gambar sama-sama merujuk pada **pemanggilan API model**, b
 }
 ```
 
+Daftar `tools` ini adalah metadata tool statis yang sudah didaftarkan developer sejak awal: nama tool, deskripsi, dan schema parameternya tertulis di dalam kode dan tidak ada kaitannya dengan apa yang ditanyakan pengguna kali ini. Baik pengguna menanyakan cuaca di Vancouver maupun meminta Agent memesan tiket pesawat, daftar yang dikirim tetap sama; contoh ini hanya mencantumkan dua tool yang relevan agar request-nya lebih pendek, sedangkan Agent nyata kerap mendeklarasikan puluhan tool sekaligus. **Bukan berarti Agent lebih dulu memecah input pengguna menjadi dua subtugas, “cari waktu” dan “cari cuaca”, lalu menghasilkan deskripsi tool yang sesuai** — pemecahan itu terjadi di sisi model, dan justru berupa `tool_calls` pada response di bawah.
+
 **Model mengembalikan tool call request (bukan balasan akhir):**
 
 ```javascript
@@ -249,7 +251,7 @@ Jika pengguna merasa masih memerlukan informasi, misalnya bertanya "Bagaimana de
 
 ### Mengimplementasikan Loop Inti Agent ke dalam Kode
 
-Sekarang karena struktur JSON-nya sudah jelas, kita bisa menghubungkan langkah-langkah di atas di dalam Python. Berikut ini adalah sebuah implementasi Agent yang sangat minimalis, yang dibangun berdasarkan satu perulangan tunggal (single loop):
+Sekarang karena struktur JSON-nya sudah jelas, kita bisa menghubungkan langkah-langkah di atas di dalam Python. Berikut ini adalah sebuah implementasi Agent yang sangat minimalis, yang dibangun berdasarkan satu perulangan tunggal (single loop): Bab ini sengaja mempertahankan loop API lengkap ini sebagai rujukan protokol; bab-bab lain menjelaskan mekanismenya dengan kode kerangka bergaya Python.
 
 ```python
 from openai import OpenAI
@@ -335,7 +337,7 @@ Loop ini memiliki satu percabangan utama: **jika model mengembalikan `tool_calls
 Daftar `messages` berubah antarputaran sebagai berikut:
 
 **Keadaan awal (sebelum panggilan pertama):**
-```
+```text
 messages = [
   { role: "system",  content: "You are a helpful assistant..." },     # Ditulis oleh developer
   { role: "user",    content: "What's the current time and weather in Vancouver?" },  # Input pengguna
@@ -343,7 +345,7 @@ messages = [
 ```
 
 **Setelah panggilan pertama (model mengembalikan panggilan tool):**
-```
+```text
 messages = [
   { role: "system",    content: "..." },
   { role: "user",      content: "What's the current time..." },
@@ -354,7 +356,7 @@ messages = [
 ```
 
 **Setelah panggilan kedua (model mengembalikan balasan akhir, loop berakhir):**
-```
+```text
 messages = [
   { role: "system",    content: "..." },
   { role: "user",      content: "What's the current time..." },
@@ -376,6 +378,27 @@ Contoh di atas menunjukkan komposisi lengkap dari context setiap kali Agent mema
 Bagian atas (System Prompt + Tool Definitions) tetap tidak berubah di sepanjang percakapan, sementara bagian bawah (riwayat percakapan, yaitu **trajectory** yang didefinisikan di Bab 1) terus membesar seiring berjalannya interaksi. Beginilah rupa kelima komponen context dari Bab 1 saat tampil di tingkat API: system prompt dan tool definitions membentuk prefix statis (awalan statis), sementara user messages, model replies, dan hasil eksekusi tool membentuk riwayat pesan (message history) yang tumbuh secara dinamis. Struktur "prefix statis + trajectory" inilah yang menjadi landasan bagi pembahasan berikutnya terkait optimasi KV Cache, kompresi context, dan teknik-teknik sejenis: bagian prefix harus tetap stabil, sementara segmen trajectory yang datang kemudian dapat dirangkum (summarized) atau diganti bila trade-off-nya memang sepadan.
 
 Sisa bab ini membedah tiap lapisan struktur tersebut: bagaimana menggunakan prefix statis yang stabil untuk mempercepat inferensi (KV Cache), bagaimana merancang System Prompt yang efektif (prompt engineering), bagaimana mencegah konten eksternal membajak context (pertahanan terhadap prompt injection), bagaimana memuat pengetahuan terspesialisasi on-demand (Agent Skills), bagaimana menyuntikkan state (keadaan) dinamis di akhir percakapan (Agent Status Bar), dan bagaimana mengompresi conversation history saat membesar terlalu besar (strategi kompresi).
+
+Teknik-teknik selanjutnya punya banyak nama, tetapi sebelum setiap permintaan semuanya bermuara pada satu keputusan penyusunan konteks. Pseudokode bergaya Python berikut mempertahankan kerangka minimal keputusan itu; ia melengkapi loop API lengkap di atas dengan menekankan tata letak konteks, dan tidak menggantikan detail protokol seperti peran pesan atau `tool_call_id`.
+
+```python
+stable_prefix = system_message
+stable_tools = core_tool_schemas
+trajectory = load_message_history(session)
+status_message = make_status_message(derive_current_state(trajectory))
+
+if estimated_tokens(stable_prefix, trajectory, status_message) > budget:
+    trajectory = compress_old_evidence(
+        trajectory,
+        preserve = [decisions, constraints, failures, citations]
+    )
+
+request.messages = [stable_prefix] + trajectory + [status_message]
+request.tools = stable_tools
+response = call_model(request)
+```
+
+Pertahankan prompt sistem dan definisi tool inti sestabil mungkin; kompres keluaran tool lama hanya secara berkelompok ketika mendekati anggaran; dan letakkan state saat ini di ekor trajektori agar model tak perlu menurunkannya lagi dari riwayat yang panjang.
 
 > **Eksperimen 2-1 ★: Deployment Layanan LLM Lokal dan Pemanggilan Tool**
 >
@@ -500,7 +523,7 @@ Developer Agent **tidak perlu menulis maupun memodifikasi Chat Template secara m
 
 Ambil Chat Template Qwen3 sebagai contoh. Dalam pemanggilan tool multi-giliran, model mempertahankan proses penalaran internal sebelumnya (isi di dalam tag `<think>`) seperti langkah-langkah perhitungan di kertas buram agar alur pikir tetap berkesinambungan. Namun, ketika Chat Template mendeteksi kueri pengguna baru, ia menganggap “pengguna telah mengganti topik”, lalu menghapus penalaran sebelumnya dan memulai kembali. Jika hasil tool keliru ditandai sebagai pesan pengguna, penghapusan ini terpicu secara tidak sengaja—seolah-olah kertas buram diambil saat model masih menghitung, sehingga model harus mulai dari awal dan kesinambungan penalaran multi-langkah sangat terganggu.
 
-Perlu diperhatikan bahwa keluarga model yang berbeda memiliki kebijakan yang sangat berbeda terhadap rantai penalaran historis, dan kebijakan tersebut juga berubah cepat. Pada era DeepSeek R1, praktik resminya adalah **menghapus seluruh penalaran historis**: dalam percakapan multi-giliran, hanya `content` yang dikirim kembali, bukan `reasoning_content`, karena CoT historis tidak pernah muncul dalam input pelatihan R1; memasukkannya kembali menjadi input di luar distribusi yang dapat mengganggu output, sekaligus penghapusannya menghemat banyak token. Namun, strategi ini bermasalah dalam skenario Agent: penalaran antara memuat state penting seperti “mengapa tool ini dipanggil dan hipotesis apa yang telah disingkirkan”; setelah dihapus, model menalar dari nol pada setiap giliran sehingga mudah mengulangi kesalahan dan kehilangan rencana jangka panjang. Karena itu, DeepSeek **membalikkan sepenuhnya** kebijakan tersebut di V4 dan mewajibkan `reasoning_content` setiap pesan assistant—termasuk yang berisi `tool_calls`—dikirim kembali tanpa perubahan; jika tidak, API langsung menghasilkan error. Kimi K2, GLM-5, dan model lain menggunakan protokol yang sama. Claude juga mewajibkan klien mengirim kembali thinking block (dengan verifikasi tanda tangan) tanpa perubahan selama loop pemanggilan tool; setelah ada input pengguna baru, server mengabaikan thinking block yang berada sebelum input pengguna nyata terakhir. Karena itu, lihatlah dokumentasi terbaru model sebelum menggunakannya.
+Perlu diperhatikan bahwa keluarga model yang berbeda memiliki kebijakan yang sangat berbeda terhadap rantai penalaran historis, dan kebijakan tersebut juga berubah cepat. Pada era DeepSeek R1, praktik resminya adalah **menghapus seluruh penalaran historis**: dalam percakapan multi-giliran, hanya `content` yang dikirim kembali, bukan `reasoning_content`, karena CoT historis tidak pernah muncul dalam input pelatihan R1; memasukkannya kembali menjadi input di luar distribusi yang dapat mengganggu output, sekaligus penghapusannya menghemat banyak token. Namun, strategi ini bermasalah dalam skenario Agent: penalaran antara memuat state penting seperti “mengapa tool ini dipanggil dan hipotesis apa yang telah disingkirkan”; setelah dihapus, model menalar dari nol pada setiap giliran sehingga mudah mengulangi kesalahan dan kehilangan rencana jangka panjang. Karena itu, DeepSeek **membalikkan sepenuhnya** kebijakan tersebut di V4: selama permintaan menyertakan parameter `tools`, `reasoning_content` setiap pesan assistant di antara dua pesan user—termasuk giliran yang sebenarnya tidak memanggil tool—wajib dikirim kembali tanpa perubahan; jika tidak, API langsung mengembalikan error 400. Sebaliknya, pada percakapan biasa tanpa `tools`, penalaran historis tetap diabaikan. Agent selalu menyertakan `tools`, sehingga kewajiban ini tidak bisa dihindari. Kimi K2, GLM-5, dan model lain menggunakan protokol yang sama. Claude juga mewajibkan klien mengirim kembali thinking block (dengan verifikasi tanda tangan) tanpa perubahan selama loop pemanggilan tool; setelah ada input pengguna baru, server mengabaikan thinking block yang berada sebelum input pengguna nyata terakhir. Karena itu, lihatlah dokumentasi terbaru model sebelum menggunakannya. Dalam percakapan banyak putaran perbedaan ini hanya menentukan hemat tidaknya token; begitu sebuah trajektori yang belum selesai harus diserahkan kepada model penyedia lain untuk dituntaskan, perbedaan itu berubah menjadi galat antarmuka yang sesungguhnya — lihat Eksperimen 5-1 pada Bab 5.
 
 **Kedua, ini menjelaskan mengapa KV Cache itu sangat sensitif terhadap prefix.** Chat Template mengonversikan system message dan tool definitions ke dalam urutan token yang tetap di dekat awalan input. State key-value untuk token-token tersebut dapat disimpan di cache dan digunakan ulang antar request. Jika sebuah token pada prefix ini berubah, bahkan walau hanya karena satu tambahan spasi kosong di system prompt, cache sejak token pertama yang berbeda dan seterusnya takkan bisa lagi dipergunakan kembali.
 
@@ -510,11 +533,11 @@ Untuk memahami manfaat KV Cache, bayangkan sebuah Agent telah mencapai putaran p
 
 ![Gambar 2-10: Mekanisme Penggunaan Kembali Prefix dari KV Cache](images/fig2-10.svg)
 
-**Memahami KV Cache melalui contoh sederhana.** Misalkan context berisi 4 token [A, B, C, D], dan model akan menghasilkan token kelima, E. Operasi inti attention membandingkan vektor Query milik E dengan vektor Key dari token-token yang ada untuk menghitung skor kecocokan (lihat Eksperimen 2-2 untuk penjelasan intuitif tentang dot product). Model kemudian menggunakan skor tersebut untuk menghitung jumlah tertimbang dari vektor-vektor Value, sehingga menghasilkan representasi output bagi E.
+**Memahami KV Cache melalui contoh sederhana.** Misalkan context berisi 4 token [A, B, C, D], dan model akan menghasilkan token kelima, E. Operasi inti attention bekerja seperti ini: vektor Query pada langkah ini berasal dari token terakhir yang sudah diketahui, yaitu D, dan dibandingkan dengan vektor Key milik keempat token A, B, C, dan D untuk menghitung skor kecocokan (lihat Eksperimen 2-2 untuk penjelasan intuitif tentang dot product). Model kemudian menggunakan skor tersebut untuk menghitung jumlah tertimbang dari vektor-vektor Value keempat token itu, sehingga menghasilkan representasi output pada posisi D — dan justru itulah yang dipakai model untuk memprediksi token berikutnya, E. Q, K, dan V milik E sendiri baru dihitung setelah E disampel dan dimasukkan kembali ke model.
 
-Tanpa KV Cache, setiap kali token baru dihasilkan, vektor K dan V dari semua token sebelumnya harus dihitung ulang dari awal: menghasilkan E memerlukan perhitungan 5 pasang K dan V, menghasilkan token keenam memerlukan 6 pasang, dan seterusnya. Saat menghasilkan token ke-N, model harus menghitung seluruh N pasang K dan V, sehingga total komputasinya sebanding dengan N².
+Tanpa KV Cache, setiap kali token baru dihasilkan seluruh prefix harus dijalankan ulang dari awal: menghasilkan E memerlukan perhitungan 4 pasang K dan V untuk A, B, C, dan D; menghasilkan token keenam memerlukan 5 pasang, sudah termasuk E; dan seterusnya. Saat prefix mencapai N token, model harus menghitung N pasang K dan V, sehingga total komputasi kumulatifnya sebanding dengan N².
 
-Dengan KV Cache, vektor K dan V untuk token A, B, C, dan D disimpan setelah dihitung. Ketika model menghasilkan token E, model hanya perlu menghitung K dan V milik E, lalu menjalankan attention menggunakan vektor baru tersebut bersama empat pasangan K dan V yang sudah tersimpan. KV Cache menghindari penghitungan ulang proyeksi K dan V bagi token historis, sehingga model tidak perlu memproses ulang seluruh prefix pada setiap langkah decoding. Namun, attention untuk setiap token baru tetap harus membaca semua nilai K dan V yang tersimpan; biayanya bertumbuh secara linier terhadap panjang konteks. Karena itu, decoding konteks panjang tetap melambat, dan kapasitas serta bandwidth memori KV Cache dapat menjadi bottleneck inferensi.
+Dengan KV Cache, vektor K dan V setiap token hanya dihitung sekali, yaitu ketika token itu pertama kali masuk ke dalam konteks, dan setelah itu tetap tersimpan di cache. Pada langkah yang menghasilkan E, empat pasangan milik A, B, C, dan D sudah ada di cache sehingga tinggal dibaca untuk menyelesaikan perhitungan attention; baru setelah E disampel dan dimasukkan kembali ke model, K dan V milik E dihitung dan ditambahkan ke cache, yang tumbuh menjadi lima pasangan untuk menghasilkan token keenam. KV Cache menghindari penghitungan ulang proyeksi K dan V bagi token historis, sehingga model tidak perlu memproses ulang seluruh prefix pada setiap langkah decoding. Namun, attention untuk setiap token baru tetap harus membaca semua nilai K dan V yang tersimpan; biayanya bertumbuh secara linier terhadap panjang konteks. Karena itu, decoding konteks panjang tetap melambat, dan kapasitas serta bandwidth memori KV Cache dapat menjadi bottleneck inferensi.
 
 **Mengapa perubahan pada prefix membatalkan cache setelah titik perubahan?** Large language model tersusun atas lapisan-lapisan Transformer yang berurutan; model modern biasanya memiliki puluhan hingga ratusan lapisan, dan setiap lapisan menghasilkan cache K dan V-nya sendiri. Keluaran lapisan pertama menjadi masukan lapisan kedua, dan seterusnya. Jika token ke-k berubah—misalnya karena satu karakter pada system prompt berubah—state sebelum k tidak terpengaruh, tetapi representasi sejak k dan seterusnya berubah saat perbedaan itu merambat melalui lapisan-lapisan berikutnya. Dalam praktiknya, cache hanya dapat digunakan kembali sampai token sebelum perbedaan pertama dan harus dihitung ulang mulai dari posisi tersebut. Biayanya bergantung pada lokasi perubahan: semakin awal titik perubahan, biasanya semakin banyak token yang perlu dihitung dan ditagihkan ulang serta semakin besar dampaknya terhadap latensi. Inilah alasan buku ini berulang kali menekankan agar system prompt yang sudah ditetapkan tidak diubah sembarangan.
 
@@ -540,10 +563,9 @@ Sebelum melanjutkan, kita perlu membedakan dua konsep yang mudah tertukar. **KV 
 
 ### Caching sebagai Kendala Arsitektur
 
-
 Dalam sistem Agent tingkat produksi, caching bukan sekadar optimisasi performa, melainkan **kendala arsitektur** yang memengaruhi banyak keputusan desain yang tampaknya tidak berkaitan.
 
-Claude Code memperlihatkan pola yang lebih umum: ketika Prompt Cache memiliki nilai ekonomi yang besar, konsistensi cache ikut membentuk arsitektur sistem.
+Praktik Claude Code menyingkapkan sebuah pola yang lebih dalam: ketika manfaat ekonomi Prompt Cache sudah cukup mencolok, konsistensi cache justru berbalik mendominasi pilihan arsitektur sistem. Berikut beberapa keputusan rancangan yang mencerminkan kendala tersebut:
 
 **Struktur prompt dibentuk oleh batas cache.** System prompt dibagi pada sebuah penanda batas: konten sebelum penanda dapat di-cache lintas pengguna dan sesi, sedangkan konten setelahnya berisi informasi khusus pengguna atau sesi. Karena itu, urutan prompt ditentukan terutama oleh ekonomi caching dan baru kemudian oleh logika semantik. Setiap kondisi runtime yang ditempatkan sebelum batas cache menggandakan jumlah variasi cache key. Jika setiap kondisi bersifat biner, N kondisi menghasilkan 2^N kombinasi; karena itu, semua elemen dinamis harus ditempatkan setelah batas tersebut. Tiga kondisi biner, misalnya macOS/Linux, mode normal/debug, dan bahasa Indonesia/Inggris, menghasilkan delapan cache key.
 
@@ -561,17 +583,17 @@ Sejauh ini kita mengasumsikan aturan ketat: ubah satu byte pada prefix, maka cac
 
 Temuan ini membuka dua operasi yang sebelumnya dianggap tidak praktis. Pertama, **Editing**: karena kesimpulan sudah ditulis ke catatan hilir, perubahan field dapat dirambatkan melalui penalaran yang di-cache ketika model memiliki chain-of-thought eksplisit, dengan hasil mendekati komputasi ulang penuh tetapi hanya sekitar 1% dari biayanya. Tanpa chain-of-thought, perubahan field terisolasi justru dapat diabaikan karena kesimpulan lama sudah tertanam di bagian hilir. Kedua, **Composition**: cache sebuah "skill" yang sudah dihitung dapat dipindahkan dengan Rotary Position Embedding (RoPE) dan disambungkan ke context lain tanpa menghitung ulang attention. Dengan cara ini, penyusunan context panjang dari blok cache modular berubah dari komputasi ulang O(L²) menjadi penyambungan O(L).
 
-Analogi catatan pinggir membantu menjelaskan gagasan ini. Saat sebuah fakta berubah, pembaca tidak perlu membaca ulang seluruh dokumen; ia cukup memperbarui catatan tentang implikasi fakta tersebut. Karena catatan KV direpresentasikan dalam bentuk yang dapat dipindahkan, satu blok catatan juga dapat direlokasi dan digunakan kembali pada masalah lain. Implementasi riset di atas pada vLLM mempercepat p90 time to first token puluhan hingga ratusan kali, mencapai prefix-cache hit rate sekitar 98,5%, dan menghasilkan keluaran yang dekat dengan komputasi token demi token.
+Sebuah perumpamaan: ketika membaca dokumen tebal, Anda tidak akan membaca ulang dari awal setiap kali satu fakta berubah, melainkan mengandalkan **catatan pinggir**—di catatan itu sudah tertulis "jadi ini berarti X". Begitulah persisnya gagasan memandang KV Cache sebagai catatan: catatan model sudah merekam **implikasi** dari tiap fakta, sehingga ketika suatu fakta berubah, cukup catatan itu yang dikoreksi, dan kesimpulan yang ditopangnya akan ikut diperbarui. Dan karena catatan itu ditulis dalam sejenis stenografi yang dapat dipindahkan, Anda bahkan bisa mengambil satu halaman catatan yang dulu dibuat untuk persoalan lain, menomori ulangnya (inilah relokasi RoPE), lalu menempelkannya ke persoalan baru untuk dipakai kembali. Setelah makalah tersebut diimplementasikan di atas vLLM, latensi token pertama (p90) turun hingga puluhan sampai ratusan kali lipat, tingkat hit cache prefiks sekitar 98,5%, sementara keluarannya sepenuhnya sepadan dengan perhitungan ulang kata demi kata dalam hal keputusan (lintas 12 model, kemiripan kosinus logit 0,90–0,999).
 
-Bagi Agent, implikasinya adalah bahwa context panjang mungkin tidak selalu perlu dibongkar dan dibangun ulang ketika tool, field memori, atau runtime state berubah. Ini masih berada pada tahap riset; tiga prinsip praktis sebelumnya tetap menjadi pedoman utama untuk sistem produksi sekarang.
+Bagi Agent, arti penting hal ini terletak pada: konteks panjang yang berulang kali dibangun ulang itu—berganti sekumpulan tool, memperbarui satu field memori, menyuntikkan satu state baru (persis yang akan dikerjakan bilah status di bagian berikutnya)—barangkali tak perlu dirobohkan dan disusun ulang setiap putaran. Ia menunjuk pada satu kemungkinan "konteks berubah, tetapi manfaat cache tetap ada": mengubah perakitan konteks dari perhitungan ulang berkompleksitas $O(L^2)$ menjadi "perangkaian catatan" berkompleksitas $O(L)$. Ini masih berada pada tahap riset; tiga simpulan praktis di bagian depan tadi tetap merupakan prinsip baku yang harus dipegang pada sistem produksi saat ini.
 
 [^ch2-2]: Li, Bojie. *Models Take Notes at Prefill: KV Cache Can Be Editable and Composable.* arXiv:2606.17107, 2026.
 
-Setelah memahami cara context diproses dan di-cache, pertanyaan berikutnya adalah bagaimana merancang isinya. Bagian-bagian selanjutnya membahas tiga jalur yang saling berkaitan:
+Setelah memahami mekanisme cache, pertanyaan berikutnya muncul dengan sendirinya: karena kini kita tahu bagaimana konteks diproses dan di-cache, bagaimana seharusnya isi yang kita kirimkan itu sendiri dirancang? Beberapa bagian berikut berkisar pada "apa sebenarnya yang diletakkan di dalam konteks dan bagaimana menatanya", dan dapat dipilah menjadi tiga jalur yang relatif berdiri sendiri:
 
-- **Prompt Engineering, Prompt Injection, dan Prompt Dinamis (Agent Skills)**: cara menulis system prompt, merancang definisi tool, melindungi context dari instruksi eksternal, dan memuat pengetahuan sesuai kebutuhan.
-- **Agent Status Bar**: mekanisme yang menambahkan meta-informasi dinamis—progres tugas, ringkasan observasi lingkungan, dan jumlah tool call—di akhir context.
-- **Strategi Kompresi Context**: kapan dan bagaimana context dikompresi, serta bagaimana kompresi hidup berdampingan dengan KV Cache.
+- **Prompt engineering, prompt injection, dan prompt dinamis (Agent Skills)**: bagaimana system prompt harus ditulis dan apa isinya—inilah bagian paling langsung dari rekayasa konteks; rancangan definisi tool (komponen statis lain yang sejajar dengan system prompt) juga langsung memengaruhi ketepatan Agent memakai tool, dan bab ini memberikan prinsip intinya sementara Bab 4 akan membahasnya secara rinci. Menyusul di belakangnya adalah persoalan keamanan—prompt injection: ketika konten eksternal berusaha membajak konteks yang sudah dirancang cermat, bagaimana membangun pertahanan di lapis konteks. Lalu ketika prompt kian panjang dan skenario yang dicakupnya kian banyak, menjejalkan semuanya ke dalam satu system prompt tidak lagi bisa dipertahankan (boros token, sekaligus melarutkan atensi), sehingga secara alami berevolusilah mekanisme pengungkapan bertahap Agent Skills—memuat sesuai kebutuhan, bukan menjejali sekaligus.
+- **Agent Status Bar (bilah status Agent)**: sebuah mekanisme tersendiri yang, dengan menyuntikkan meta-informasi dinamis di ekor konteks (progres tugas, ringkasan observasi lingkungan, jumlah pemanggilan tool, dan sebagainya), menutupi kelemahan model yang tak mampu merangkum keadaan implisit secara aktif. Seperti layar ponsel yang di bagian atasnya selalu menampilkan waktu, daya baterai, dan sinyal jaringan, bilah status Agent membuat model kapan saja cukup "melirik sekilas" untuk tahu keadaan operasional saat ini.
+- **Strategi kompresi konteks**: menjawab masalah konteks yang terus membengkak—kapan mengompres, bagaimana mengompres, dan bagaimana kompresi hidup berdampingan dengan KV Cache.
 
 ## Prompt Engineering: Mengoptimalkan System Prompt
 
@@ -583,7 +605,7 @@ Bagian berikut membahas beberapa dimensi desain system prompt.
 
 ### Nada dan Gaya: Membingkai Perilaku
 
-Nada dan gaya mudah diabaikan, padahal keduanya sangat memengaruhi pengalaman pengguna. Instruksi seperti "Anda HARUS menjawab secara ringkas dalam kurang dari empat baris" membatasi respons dengan jelas. Saat Agent tidak dapat menyelesaikan tugas, aturan seperti "jawab dalam satu atau dua kalimat" mencegah pembenaran diri yang panjang. Kata berhuruf kapital seperti `JANGAN PERNAH` lebih menonjol daripada permintaan lunak, tetapi jika digunakan terlalu sering efeknya akan melemah; gunakan hanya untuk batasan yang benar-benar penting.
+Rancangan nada dan gaya adalah bagian rekayasa prompt yang paling mudah diabaikan, padahal ia sangat memengaruhi pengalaman pengguna. Misalnya, kita bisa menuntut "You MUST answer concisely with fewer than 4 lines" (Anda harus menjawab ringkas, tidak lebih dari 4 baris); dan ketika tugas tak dapat diselesaikan, menuntut "keep your response to 1-2 sentences" (jaga jawaban dalam 1-2 kalimat), serta "jangan menjelaskan mengapa sesuatu tidak bisa dilakukan". Rancangan semacam ini mencegah Agent terjerumus ke dalam pembelaan diri yang bertele-tele. Huruf kapital (seperti "NEVER do X") lebih menarik "perhatian" model dibanding "Please avoid doing X", tetapi pemakaian berlebihan akan melarutkan efeknya, sehingga sebaiknya disimpan untuk batasan yang benar-benar krusial.
 
 ### Prompt Terstruktur: "Format" System Prompt
 
@@ -591,13 +613,36 @@ Large language model modern cukup sensitif terhadap input terstruktur karena ban
 
 Markdown menyediakan struktur ringan yang tetap mudah dibaca. Kombinasi XML dan Markdown membentuk dua lapisan: XML memberikan semantik yang presisi dan dapat diurai mesin, sedangkan Markdown mengatur isinya bagi manusia maupun model.
 
+Sebagai contoh, sebuah system prompt yang memakai keduanya sekaligus:
+
+```text
+# Aturan Penggunaan Tool
+
+## Operasi File
+<file_operation>
+- Sebelum membaca file, periksa dulu apakah path-nya ada
+- Sebelum menulis file, buat cadangan terlebih dahulu
+</file_operation>
+
+## Permintaan Jaringan
+<network_request>
+- Setel timeout ke 30 detik
+- Setelah gagal, coba ulang maksimal 3 kali
+</network_request>
+```
+
+- **Peran Markdown**: judul `#` dan `##` membuat manusia langsung melihat struktur hierarkinya sehingga prompt tetap mudah dibaca.
+- **Peran XML**: tag seperti `<file_operation>` dan `<network_request>` memberi tahu model bahwa “blok ini tentang operasi file” dan “blok ini tentang permintaan jaringan”; semantiknya presisi sehingga model memprosesnya lebih akurat.
+
+Dengan keduanya, prompt terbaca jelas bagi manusia dan dipahami secara akurat oleh model.
+
 ### Berorientasi Proses vs. Menumpuk Aturan: "Organisasi" System Prompt
 
 Metode yang mengurangi beban kognitif manusia juga membantu LLM. Bayangkan anggota tim baru menerima manual berisi ratusan aturan yang tersebar, tanpa alur atau prioritas. Bahkan orang yang sangat cakap akan kesulitan menentukan aturan mana yang berlaku ketika beberapa aturan bertabrakan.
 
 Sebaliknya, prompt berorientasi proses berfungsi seperti manual pelatihan yang baik dengan Standard Operating Procedure (SOP) yang jelas:
 
-```
+```text
 Prosedur Operasi Standar Pemrosesan File:
 
 Langkah 1: Validasi
@@ -664,7 +709,7 @@ Mengapa menambahkan di akhir tidak merusak cache? Hal ini mengikuti secara langs
 
 “Ditambahkan ke bagian akhir” hanya terjadi pada giliran ketika tool ditemukan. Setelah itu, blok skema tetap berada di posisi aslinya dalam trajectory; pesan-pesan baru ditambahkan setelahnya, dan blok tersebut tidak dipindahkan lagi ke ujung terbaru pada setiap giliran.
 
-Batasan lain dari mekanisme ini adalah kapabilitas model: model harus telah dilatih tentang pola "definisi tool yang muncul di tengah percakapan"—yang merupakan alasan mengapa hanya model yang lebih baru (misal, GPT-5.4+, seri Claude 4.5+) yang saat ini mendukungnya, dan mengapa model open-source yang di-host sendiri memerlukan pelatihan khusus. Pembahasan penuh tentang penemuan tool (tool discovery) ada di bagian "Proactive Tool Discovery" di Bab 4.
+Batasan lain dari mekanisme ini adalah kapabilitas model: model harus telah dilatih tentang pola "definisi tool yang muncul di tengah percakapan"—yang merupakan alasan mengapa hanya model yang lebih baru (misal, GPT-5.4+, seri Claude 4.5+) yang saat ini mendukungnya, dan mengapa model open-source yang di-host sendiri memerlukan pelatihan khusus. Pembahasan penuh tentang penemuan tool (tool discovery) ada di bagian "Apa yang Harus Dilakukan Ketika Tool Terlalu Banyak" di Bab 4.
 
 > **Eksperimen 2-4 ★★: Studi Ablasi dalam Prompt Engineering**
 >
@@ -731,49 +776,58 @@ Ini adalah evolusi alami dari prompt engineering statis menjadi prompt dinamis: 
 Ide inti dari Agent Skills adalah memodularisasi kapabilitas Agent ke dalam paket-paket pengetahuan independen yang dapat dimuat[^ch2-3]. Tiap Skill pada dasarnya adalah kumpulan prompt dan file yang mengandung panduan domain khusus, layaknya sebuah buku manual operasi untuk tugas spesifik. Berbeda dengan pendekatan tradisional yang menempatkan seluruh instruksi ke satu system prompt, Skills menggunakan Pengungkapan Progresif (Progressive Disclosure): pertama tunjukkan ke Agent daftar isi ringkasannya, lalu muat konten lengkapnya hanya jika diperlukan. Daripada memuat setiap manual domain ke dalam context secara bersamaan, kerangka kerja ini menyediakan direktori dan membiarkan Agent mengambil manual yang relevan sesuai kebutuhan.
 
 [^ch2-3]: Anthropic, "Equipping Agents for the Real World with Agent Skills", 2025.
+[^ch2-codex-skills]: OpenAI, “Build skills,” dokumentasi Codex. https://developers.openai.com/codex/skills/
 
-**Lapisan 1 (Metadata)**: Tiap Skill harus menyertakan file `SKILL.md` yang dimulai dengan YAML frontmatter (sebuah blok metadata di bagian atas file yang dibatasi dengan `---`, mirip dengan halaman hak cipta buku), yang memuat kolom `name` dan `description`. Kerangka kerja Agent memindai semua Skills yang terinstal pada saat startup dan menginjeksi `name` dan `description` tersebut ke dalam context dialog. Ini biasanya hanya memakan biaya beberapa ratus token, dan trade-off di seputar lokasi injeksinya akan dibahas pada sub-bagian berikutnya. Tujuannya adalah membiarkan Agent mengetahui kapabilitas khusus apa yang tersedia tanpa perlu memuat seluruh isi konten Skill ke context.
+**Lapisan 1 (Metadata)**: Tiap Skill sebaiknya menyediakan file `SKILL.md` yang dimulai dengan YAML frontmatter (blok metadata yang dibatasi `---`), dengan kolom `name` dan `description`. Katalog harus terlihat oleh Agent sebelum isi utama dimuat, sehingga Agent dapat menilai relevansi sebuah kemampuan tanpa membayar biaya context penuh untuk setiap Skill. Runtime dapat menempatkan katalog di lapisan context yang berbeda; tujuan bersamanya adalah ketercarian, bukan memuat seluruh alur kerja domain.
 
-Routing bergantung secara krusial pada kolom `description` dari metadata. Ia harus cukup ringkas untuk menjaga token yang selalu termuat tetap rendah, tetapi ditulis sebagai aturan routing ketimbang ringkasan fitur. Pola yang paling jelas adalah "Gunakan saat / Jangan gunakan saat," didukung dengan **contoh negatif (negative examples)** yang mengidentifikasi situasi-situasi saat mana Skill tersebut tidak boleh dipicu. Contoh negatif bukanlah suatu opsi; mereka esensial untuk routing Skill yang akurat. Deskripsi umum seperti "bantu perihal backend" akan aktif di tugas yang tidak berhubungan, sementara pengecualian yang jelas akan membuat routing secara substansial lebih presisi. Untuk tujuan routing, "kapan menggunakan saya" jauh lebih penting daripada "apa yang bisa saya lakukan."
+Kolom `description` pada metadata penting untuk routing. Buatlah cukup ringkas agar jumlah token yang selalu hadir tetap rendah, tetapi tulislah sebagai kondisi routing, bukan ringkasan fitur. Batas “Gunakan saat” dan “Jangan gunakan saat” serta beberapa **contoh negatif** dapat mengurangi pemicu keliru akibat pencocokan yang terlalu luas. Ini adalah saran penulisan untuk prompt routing, bukan kolom wajib tambahan. Deskripsi seperti “bantu perihal backend” dapat aktif pada hampir semua tugas backend; deskripsi yang efektif menjelaskan kapan Skill harus digunakan, bukan hanya apa yang dapat dilakukannya.
 
-**Lapisan 2 (Alur Kerja Inti)**: Saat Agent menentukan bahwa Skill tertentu dibutuhkan untuk tugas, ia memuat file `SKILL.md` sepenuhnya via tool Skill yang terdedikasi, dan isi kontennya akan muncul dalam riwayat percakapan sebagai hasil dari tool. Mengambil Skill PPTX[^ch2-4] sebagai contoh, itu memuat alur kerja inti untuk menangani file PowerPoint: bagaimana mengekstraksi teks via markitdown (tool open-source Microsoft untuk mengubah dokumen ke Markdown), bagaimana meng-unzip file PPTX untuk mengakses struktur XML mentahnya, dan konvensi jalur untuk file penting.
+**Lapisan 2 (Alur Kerja Inti)**: Saat Agent menentukan bahwa tugas memerlukan Skill tertentu, runtime baru memuat `SKILL.md` lengkap pada saat itu. Ada dua cara pemuatan ini dipicu: saat pengguna mengetik slash command eksplisit (misalnya `/pptx`), klien mencegat dan mengembangkannya secara lokal sehingga model tidak perlu lebih dulu melakukan panggilan tool; saat model sendiri memutuskan bahwa sebuah Skill dibutuhkan setelah membaca katalog metadata, model memanggil tool Skill khusus, yang menambah satu putaran ReAct. Kedua jalur berakhir di tempat yang sama: Claude Code menambahkan isi Skill sebagai pesan user di titik pemanggilan, dan pada jalur yang dipicu model, hasil tool hanyalah placeholder yang menyatakan Skill sedang dijalankan, bukan isinya[^ch2-cc-skill-inject]. Runtime tanpa tool aktivasi khusus membuat model membaca `SKILL.md` dengan tool baca file umum, dan isinya baru masuk ke context sebagai hasil tool. Sebagai contoh, PPTX Skill[^ch2-4] memuat alur kerja inti untuk menangani file PowerPoint: mengekstrak teks melalui markitdown (tool open-source Microsoft untuk mengubah dokumen menjadi Markdown), membuka arsip PPTX untuk mengakses struktur XML mentah, dan konvensi jalur file penting.
 
 [^ch2-4]: Anthropic, "PPTX Skill", 2025. https://github.com/anthropics/skills/
+[^ch2-cc-skill-inject]: Claude Code Docs, [“How Claude Code uses prompt caching”](https://code.claude.com/docs/en/prompt-caching), bagian “Invoking skills and commands”: “Skills and commands inject their instructions as user messages at the point of invocation.” Untuk pembagian antara pemicuan eksplisit dan pemicuan oleh model, lihat Agent Skills, [“How to add skills support to your agent”](https://agentskills.io/client-implementation/adding-skills-support), bagian “User-explicit activation”: Harness mencegat slash command dan menyuntikkan isinya sehingga model tidak perlu melakukan aksi aktivasi sendiri.
 
 **Lapisan 3 (Detail)**: Referensi file memungkinkan navigasi lebih dalam ke sub-dokumen yang lebih detail. File utama merujuk pada `html2pptx.md` (alur kerja detail untuk membuat PowerPoint dari template HTML), `reference.md` (detail format teknis), dan lain-lain. Agent secara selektif membaca sub-dokumen yang relevan berdasarkan pada kebutuhannya yang spesifik.
 
-Skills bukan cuma memuat dokumentasi instruksional melainkan bisa juga memaketkan tool kode yang dapat dieksekusi dan file template—mengubahnya dari yang sekadar transfer pengetahuan menjadi kemampuan operasional.
+### Cara Menulis Skill yang Berguna
+
+Struktur runtime menjawab “kapan memuat” dan “berapa banyak memuat”; isinya tetap harus mengubah pengalaman menjadi instruksi yang dapat dijalankan model. Skill yang berguna perlu menjelaskan kepada anggota tim baru tugas yang dicakup, urutan tindakan, kapan harus berhenti untuk meminta konfirmasi, dan apa arti selesai.
+
+Mengikuti panduan penulisan Baoyu, *Panduan Visual Skill*[^ch2-baoyu-remove-ai-writing-flavor], mulailah dengan empat bagian:
+- **Peran dan pembaca**: siapa yang dilayani Skill, tugas yang dicakup, dan standar keluaran;
+- **Prinsip inti**: tiga hingga lima penilaian penting, dengan contoh positif dan negatif;
+- **Daftar larangan**: kesalahan umum, tindakan di luar cakupan, dan ungkapan membingungkan, termasuk pengecualian yang sah;
+- **Referensi**: glosarium, template, contoh, dan subdokumen rinci. Tulis aturan sebagai “cakupan + tindakan + pengecualian + verifikasi”, bukan daftar kata terlarang yang terus memanjang.
+
+Skill penulisan dapat dimulai dari tiga hingga lima tulisan Anda sendiri. Minta Agent menyimpulkan pilihan kata, pola kalimat, struktur paragraf, dan nada; buat draf awal singkat; lalu terapkan pada tugas nyata dan revisi kalimat demi kalimat. Perbedaan antara naskah asli dan revisi lebih informatif daripada “buat lebih natural”: perbedaan itu menunjukkan kata yang dihapus, kalimat panjang yang dipecah, dan fakta yang ditambahkan. Masukkan perubahan berulang ke Skill, sambil menyimpan contoh positif, negatif, dan cakupan tiap aturan.
+
+Skill juga dapat memaketkan tool kode yang dapat dieksekusi dan file template. Misalnya, Skill presentasi dapat berisi template slide dan skrip untuk mengurai presentasi.
 
 Nilai Skills bukan hanya terletak pada manajemen context namun juga pada penyediaan jalur berkelanjutan untuk mengumpulkan pengetahuan domain. Setiap Skill merupakan modul pengetahuan mandiri yang bisa dikembangkan, diuji, dikontrol versinya, dan dibagikan secara independen. Modularitas ini mengubah perluasan kemampuan Agent dari yang sebelumnya pengeditan system prompt yang terpusat menjadi ekosistem Skill yang terdistribusi, selaras dengan manajer paket semacam pip milik Python atau npm milik Node.js. Setiap Skill merangkum praktik terbaik untuk sebuah domain yang spesifik. Repositori Skills resmi dari Anthropic telah melingkupi perihal pemrosesan dokumen (PPTX, PDF, DOCX), analisis data, pembuatan kode (code generation), dan domain-domain lain, memungkinkan developer untuk menggunakan, menyesuaikan, atau membuat Skills yang sama sekali baru.
 
-Hal ini mengungkap prinsip yang penting untuk pengembang Agent: **saat memilih sebuah mode interaksi Agent, selaraskan dengan pola interaksi yang didesain agar disokong oleh model dan API**. Ketika membangun Agent dengan Claude, pergunakan sepenuhnya Skills dan system prompt yang terstruktur; saat menggunakan model lain, ikuti konvensi yang dioptimalkan oleh vendor model tersebut. Pola-pola pemakaian Agent yang dipromosikan oleh para perusahaan pembuat model utama sering mencerminkan tipe penggunaan dari apa-apa yang telah mereka latih dan evaluasi pada model-model tersebut.
+Hal ini mengungkap prinsip yang penting untuk pengembang Agent: **saat memilih mode interaksi Agent, selaraskan dengan metodologi pelatihan vendor model**. Pola penggunaan Agent yang dipromosikan perusahaan model dasar sering mencerminkan mode yang memang dilatih untuk didukung oleh model mereka.
 
-### Metode Implementasi Skills dan Trade-off
+[^ch2-baoyu-remove-ai-writing-flavor]: Baoyu, “Berhenti Menggunakan Prompt untuk Menghilangkan Rasa AI; Arahnya Keliru,” 14 Februari 2026. https://baoyu.io/blog/2026-02-14/remove-ai-writing-flavor
 
-Sesudah mendefinisikan Skills, pertanyaan selanjutnya adalah masalah teknik konkret: di bagian context yang mana konten Skill harus ditempatkan? Keputusan desain ini berdampak langsung pada efisiensi KV Cache dan kemampuan model dalam mematuhi perintah-perintah pada Skill. Pada prinsipnya, ada dua pendekatan umum, tapi keduanya memakan biaya yang signifikan. Sistem tingkat produksi seperti Claude Code menggunakan pendekatan ketiga yang menghindari sisi kelemahan mendasar dari kedua pendekatan sebelumnya.
+### Skills di dalam Context
 
-**Pendekatan Satu: Injeksikan ke System Prompt (pesan sistem).** Tambahkan konten Skill langsung ke system prompt. Model umumnya paling baik mengikuti instruksi yang berada pada posisi sistem karena pola ini banyak digunakan selama pelatihan. Kekurangannya, setiap Skill baru mengubah pesan sistem dan membatalkan prefix KV Cache. Jika Agent sering berganti Skill, cache akan berulang kali dibuat ulang sehingga latensi dan biaya meningkat.
+Saat menilai biaya context Skills, pisahkan katalog metadata dari instruksi Skill yang lengkap:
 
-**Pendekatan Dua: Baca sebagai file biasa sehingga kontennya muncul di tengah konteks.** Agent membaca dokumen Skill melalui alat pembaca file generik, lalu isi file masuk ke riwayat percakapan sebagai hasil alat. Pendekatan ini tidak mengubah system prompt dan tidak membatalkan prefix cache, tetapi menuntut kemampuan instruction-following yang lebih kuat: model harus mengenali dan mematuhi instruksi yang berada di tengah konteks panjang, bukan memperlakukannya sebagai keluaran alat biasa. Dukungan model terhadap pola ini berbeda-beda; Claude cenderung lebih andal, sedangkan model lain dapat mengalami penurunan kepatuhan terhadap instruksi yang disisipkan di tengah konteks.
+- **Prinsip tingkat standar**: mekanisme menetapkan urutan pemuatan, bukan role pesan. Katalog harus dapat ditemukan sebelum isi utama, dan isi dimuat sesuai kebutuhan setelah Skill dipilih. Role, pembungkus, dan apakah katalog dibangun ulang setiap turn merupakan pilihan Agent Harness.
+- **Claude Code secara konseptual**: menyediakan katalog kecil sebagai context runtime dan menambahkan instruksi lengkap pada titik pemanggilan Skill. “System prompt” dapat menggambarkan lapisan instruksi stabil secara logis, tetapi tidak berarti setiap client menggunakan role API `system`. Gambar 2-12 menggambarkan kasus yang dipicu model, sehingga trajectory memuat putaran lengkapnya: tool_use `Skill(skill: "pptx")`, sebuah tool_result placeholder, lalu isinya ditambahkan sebagai pesan user tersendiri. Jika pengguna langsung mengetik `/pptx`, klien mengembangkannya secara lokal sehingga pasangan pesan tool itu tidak muncul dan hanya menyisakan pesan user terakhir.
+- **Codex secara konseptual**: saat membangun context tiap turn, katalog Skills dirender ke context `developer`; Skill yang dipilih secara eksplisit diinjeksikan sebagai context `user` bertanda `<skill>`. Skill dari sumber lain dapat dibaca sesuai kebutuhan melalui tool.[^ch2-codex-skills]
 
-**Pendekatan Tiga (Implementasi Produksi): Sediakan metadata sebagai konteks dinamis, lalu muat konten lengkap sesuai kebutuhan melalui alat khusus.** Pendekatan inti Claude Code memisahkan "routing" dari "eksekusi": model terlebih dahulu menerima metadata Skill yang tersedia untuk menentukan apakah tugas memerlukan Skill tertentu; setelah memilihnya, barulah model memuat `SKILL.md` lengkap. Desain ini menyeimbangkan overhead konteks, pemakaian ulang Prompt Cache, dan kemampuan mengikuti instruksi.
-
-- **Daftar metadata**—`name` dan `description` dari seluruh Skill terpasang, biasanya hanya beberapa ratus token—disediakan lebih dahulu agar model dapat menentukan Skill yang relevan. Peran pesan yang digunakan untuk menyisipkan metadata merupakan detail implementasi Harness Claude Code, bukan persyaratan tetap mekanisme Agent Skills. Versi historis Claude Code pernah menempatkannya sebagai konten berperan pengguna yang dibungkus `<system-reminder>`; jalur implementasi yang mendukung pesan sistem di tengah percakapan dapat memakai blok konteks sistem yang ditambahkan di akhir. Tujuan keduanya sama: memberi tahu model tentang Skill yang tersedia tanpa terus-menerus menulis ulang prefix konteks yang stabil.
-- **Konten lengkap** dimuat sesuai kebutuhan. Setelah model menentukan bahwa suatu Skill cocok untuk tugas saat ini, alat Skill membaca `SKILL.md` terkait dan memasukkan isinya ke konteks eksekusi. Dengan demikian, instruksi lengkap untuk seluruh Skill tidak perlu dimuat pada awal sesi, sehingga konteks yang tidak relevan dapat dihindari.
-
-Desain dua lapis—katalog kecil yang selalu tersedia dan isi lengkap yang dimuat sesuai kebutuhan—inilah yang membuat Skills tetap mudah ditemukan tanpa membebani context.
-
-Dua gambar berikut menunjukkan efek desain ini dari dua perspektif: posisi Skills dalam trajectory dan evolusi dari KV Cache.
+Agent Harness berkembang cepat sehingga representasi konkretnya dapat berubah. Prinsip yang stabil adalah **katalog kecil yang mudah ditemukan dan isi lengkap yang dimuat sesuai kebutuhan**. Dengan demikian, Skills menggabungkan pemuatan dinamis dan biaya context yang terkendali. Dua gambar berikut menunjukkan desain ini dari dua perspektif: posisi Skills dalam trajectory dan evolusi KV Cache. Agar efek rancangan ini terasa langsung, dua gambar berikut menelusuri dari dua sudut pandang letak Skills di dalam trajektori dan evolusi KV Cache.
 
 ![Gambar 2-12: Struktur Lengkap Trajectory Agent Setelah Mengaktifkan Skills](images/fig2-12.svg){height=55%}
 
 ![Gambar 2-13: Evolusi KV Cache Seiring Tumbuhnya Trajectory Agent](images/fig2-13.svg)
 
-Sebuah kesalahpahaman umum perlu diklarifikasi: "ramah KV Cache (KV Cache-friendly)" tidak berarti "tanpa biaya (zero cost)". Penyisipan pertama dari beberapa ratus hingga beberapa ribu token itu masih dikenakan biaya penulisan (seperti disebutkan sebelumnya, penulisan Prompt Cache bahkan mungkin ditagihkan lebih mahal). Arti persisnya adalah **tulis sekali, manfaatkan berulang-ulang**: agar model menyadari keberadaan suatu Skill atau sepotong konten dokumen, informasi tersebut harus masuk ke dalam cache setidaknya sekali. Claude Code menanggung biaya ini sekali saja, tanpa pengulangan untuk sisa sesi. Bandingkan hal ini dengan menempatkan informasi yang sama ke dalam system prompt: setiap pembaruan akan membatalkan cache dari trajectory di bawahnya (downstream trajectory) dan memaksa pembuatan cache lagi, sering kali untuk puluhan atau ratusan ribu token. Itulah kasus yang benar-benar tidak ramah cache.
+Sebuah kesalahpahaman umum perlu diklarifikasi: “ramah KV Cache” tidak berarti “tanpa biaya”. Katalog harus diproses saat pertama kali masuk ke sebuah request, dan pemuatan isi Skill menambah komputasi ketika pertama kali diperlukan; request berikutnya dapat memakai ulang cache selama prefix yang sudah terbentuk tetap stabil. Harness berbeda dalam cara membangun ulang katalog, tetapi manfaat bersamanya adalah tidak perlu memuat semua isi Skill di awal atau menulis ulang context yang sudah terbentuk setiap kali Skill baru dipanggil.
 
 ### Hubungan Antara Skills dan Tool
 
-Dari perspektif pengelolaan context, mekanisme Skills sangat ramah terhadap KV Cache. Jika semua definisi tool kode khusus ditempatkan di dalam system prompt, pertambahan jumlahnya akan menghabiskan banyak token dan mengganggu perhatian model. Sebaliknya, dalam pola Skill + eksekutor umum, jumlah tool tetap sedikit (seperti ditunjukkan pada Bab 5, hanya dibutuhkan tujuh tool inti), sedangkan konten Skill dimuat sesuai kebutuhan melalui mekanisme progressive disclosure di atas tanpa memengaruhi prefix yang telah di-cache. Bab 4 menyajikan perbandingan terperinci dan kerangka pemilihannya, sementara Bab 8 membahas bagaimana Agent yang terus berevolusi menentukan apakah suatu pengalaman perlu ditulis sebagai pengetahuan, instruksi, program, atau parameter model.
+Dari perspektif pengelolaan context, mekanisme Skills sangat ramah terhadap KV Cache. Jika semua definisi tool kode khusus ditempatkan di dalam system prompt, pertambahan jumlahnya akan menghabiskan banyak token dan mengganggu perhatian model. Sebaliknya, dalam pola Skill + eksekutor umum, jumlah tool tetap sedikit (seperti ditunjukkan pada Bab 5, hanya dibutuhkan tujuh tool inti), sedangkan konten Skill dimuat sesuai kebutuhan melalui mekanisme progressive disclosure di atas tanpa memengaruhi prefix yang telah di-cache. Bab 4 menyajikan perbandingan terperinci dan kerangka pemilihannya, sementara Bab 9 membahas bagaimana Agent yang terus berevolusi menentukan apakah suatu pengalaman perlu ditulis sebagai pengetahuan, instruksi, program, atau parameter model.
 
 > **Eksperimen 2-6 ★★: Hasilkan Presentasi dari Paper Menggunakan Agent Skills**
 >
@@ -790,22 +844,27 @@ Dari perspektif pengelolaan context, mekanisme Skills sangat ramah terhadap KV C
 > **Kriteria Penerimaan**: PowerPoint yang dihasilkan mencakup konten utama paper (halaman judul, latar belakang masalah, tinjauan metode, hasil utama, kesimpulan), menyertakan setidaknya 3 gambar yang diekstrak dari paper yang konsisten dengan deskripsi teks, dan memiliki format yang benar yang terbuka dengan baik di PowerPoint atau perangkat lunak yang kompatibel.
 >
 
+> **Eksperimen 2-7 ★★: Membuat Skill Menulis "Bebas Rasa AI" dari Contoh Tulisan Pribadi**
+>
+> **Tujuan Eksperimen**: menghasilkan sebuah Skill menulis yang dapat dimuat dan diperiksa dari sedikit contoh tulisan manusia, lalu mengamati apakah Skill itu mampu mereproduksi preferensi ekspresi utama penulis pada artikel baru.
+>
+> **Deskripsi Eksperimen**: siapkan tiga sampai lima artikel orisinal, lalu biarkan runtime yang mendukung Agent Skills menghasilkan `SKILL.md` versi pertama; pilih topik baru dan susun draf artikel, setelah penulis menyuntingnya secara manual, bandingkan sebelum/sesudah dan tuliskan kembali pola yang stabil ke dalam Skill. Kriteria penerimaan hanya menuntut Skill memiliki kondisi pemicu yang jelas, tiga sampai lima prinsip beserta contoh, cakupan, dan pengecualian — tanpa menjadikan satu penilaian subjektif sebagai aturan umum.
+>
+> **Apa yang Ditunjukkan Eksperimen Ini**: nilai sebuah Skill terletak pada mengeksternalkan pengalaman pribadi menjadi instruksi yang dimuat sesuai kebutuhan. Versi pertama yang singkat, mudah dibaca, dan lolos uji tugas nyata adalah titik awal iterasi yang lebih baik daripada mendaftar puluhan aturan sejak awal.
+
 ## Agent Status Bar: Mengelola Trajectories dengan Informasi Meta
 
 ![Gambar 2-14: Arsitektur Agent Status Bar](images/fig2-14.svg)
 
-Bagian Skills memperkenalkan "pesan meta peran-pengguna (user-role meta message) di akhir context" sebagai sebuah jalur umum untuk menginjeksi informasi meta. Daftar metadata Skill adalah salah satu penggunaan dari jalur tersebut. Bagian ini mengembangkan mekanisme tersebut secara lebih sistematis: kerangka kerja Agent dapat menggunakannya untuk menyinkronkan state runtime (runtime state) dinamis dengan model. Mekanisme ini disebut **Agent Status Bar**.
-
-Prompt engineering yang dibahas sebelumnya menyelesaikan masalah "instruksi statis apa yang harus diberikan kepada model." Namun, selama eksekusi yang sebenarnya, Agent juga perlu melacak status dan progres tugasnya sendiri secara dinamis—di sinilah Agent Status Bar berperan.
+Skills pada bagian sebelumnya menjawab "kemampuan apa saja yang dimiliki Agent dan dapat dimuat sesuai kebutuhan"; bagian ini membahas masalah lain yang berdiri sendiri: bagaimana membuat Agent setiap saat dapat melihat **state runtime** seperti progres tugas, perubahan lingkungan, dan jumlah pemanggilan tool. Prompt engineering memberikan instruksi statis, sedangkan Agent dalam proses eksekusinya masih perlu mengindra secara dinamis keadaannya sendiri dan kemajuan tugasnya. Kerangka kerja Agent merapikan informasi dinamis ini menjadi ringkasan terstruktur lalu menyuntikkannya ke dalam konteks; mekanisme ini disebut **Agent Status Bar (bilah status Agent)**.
 
 Ketika membangun sistem Agent tingkat produksi, hanya mengandalkan kapabilitas bawaan dari LLM sering kali tidak cukup. Agent yang mengeksekusi tugas-tugas kompleks dapat jatuh ke dalam mode kegagalan seperti perulangan tak terbatas (infinite loops), hilangnya state, dan pergeseran tujuan (goal drift). Akar penyebabnya sering kali karena model tersebut kurang memiliki pandangan yang jelas tentang state dari lingkungan saat ini dan progres tugasnya. Agent Status Bar mengatasi hal ini dengan menyematkan informasi meta terstruktur ke dalam context, memberi model sinyal status (state signals) eksplisit yang dapat digunakannya selama pengambilan keputusan.
 
 Analogi yang paling dekat adalah **status bar** dari sebuah sistem operasi. Di telepon seluler, bagian atas layar menampilkan waktu, sisa baterai, kekuatan sinyal, dan jumlah notifikasi. Informasi ini bukanlah konten utama dari aplikasi, tetapi hal ini memberi pengguna akses langsung ke status perangkat saat ini. Agent Status Bar memiliki fungsi yang sama bagi model: ini bukanlah bagian dari konten utama percakapan—bukan permintaan pengguna akhir, output model, atau hasil tool—melainkan sebuah **ringkasan state (state summary)** yang diinjeksikan oleh kerangka kerja Agent di akhir context: "Anda telah melakukan 3 panggilan," "Waktu saat ini adalah 10:30," "Sisa 2 item TODO." Setiap kali model menghasilkan respons, ia dapat menggunakan state ini untuk membuat keputusan yang lebih baik.
 
-
 ### Dasar Teoritis dari Agent Status Bar
 
-Keefektifan Agent Status Bar bermula dari properti dasar mekanisme atensi (attention mechanism): in-context learning lebih mirip penarikan kembali (retrieval-like) ketimbang penalaran (reasoning-like). Model ahli dalam menemukan informasi yang sudah ada di dalam context, namun kurang bisa diandalkan dalam secara aktif meringkas context tersebut dan menderivasi state agregat (aggregate state) selama satu forward pass (lintasan maju tunggal). Ini merujuk pada bagaimana model mengkonsumsi context yang ada dalam satu forward pass; ini tidak meniadakan kapabilitas model untuk melakukan penalaran multi-langkah melalui pembentukan rantai pemikiran (chain-of-thought).
+Agent Status Bar efektif karena satu sifat hakiki mekanisme atensi: pembelajaran dalam konteks lebih menyerupai penarikan kembali daripada penalaran—model mahir mencari informasi dari isi yang sudah ada, tetapi tidak mahir merangkum dan menyimpulkan secara aktif. Yang dibicarakan di sini adalah bagaimana model memperlakukan informasi yang sudah berada di dalam konteks dalam satu kali forward pass, dan itu tidak menyangkal bahwa model dapat menyelesaikan penalaran berbilang langkah dengan membangkitkan rantai pemikiran.
 
 Dengan kata lain, atensi memberi model akses penarikan-kembali yang kuat terhadap token yang ada. Diberikan sebuah pertanyaan, model sering kali dapat menarik catatan (records) mentah yang relevan dari ribuan token, membuat setiap forward pass menyerupai bentuk ringan dari Retrieval-Augmented Generation (RAG). Apa yang hilang adalah lapisan **penyulingan (distillation layer)** otomatis. Context tidak dihitung, diindeks, atau dirangkum secara otomatis di tempatnya. Kesimpulan apa pun *mengenai* konten—seberapa banyak item yang ada, apakah suatu batas telah terlampaui, seberapa jauh tugas tersebut berjalan—harus dihitung kembali (recomputed) dari catatan mentah saat model membutuhkannya. Biaya perhitungan kembali tersebut meningkat seiring dengan jumlah konten yang terakumulasi di dalam context.
 
@@ -821,7 +880,7 @@ Dalam skenario context yang panjang, sumber daya atensi model itu terbatas. Seir
 
 Agent Status Bar memecahkan masalah ini dengan sengaja menempatkan informasi meta kunci dalam format terstruktur di bagian akhir context. Karena informasi ini dekat dengan token yang akan segera dihasilkan model, ia lebih mungkin untuk menerima atensi. Ini adalah bentuk pengendalian atensi (attention steering) melalui penempatan.
 
-> **Eksperimen 2-7 ★★: Memverifikasi Efek Agent Status Bar via Visualisasi Atensi (Attention Visualization)**
+> **Eksperimen 2-8 ★★: Memverifikasi Efek Agent Status Bar via Visualisasi Atensi (Attention Visualization)**
 >
 > Berdasarkan proyek `attention_visualization`, kami merancang eksperimen terkontrol di mana Agent customer service menangani permintaan pengembalian dana. Agent tersebut telah menelepon Xfinity sebanyak 3 kali, diselingi dengan pencarian web. Pengguna bertanya: "Bisakah kamu menelepon mereka lagi untuk menindaklanjutinya?"
 >
@@ -840,26 +899,13 @@ Agent Status Bar memecahkan masalah ini dengan sengaja menempatkan informasi met
 > Atensi sangat terkonsentrasi pada informasi status bar. Proses penalaran secara langsung menggunakan informasi yang sudah disuling, tidak lagi menghitung statistik dari data mentah. Untuk model kecil seperti Qwen3-0.6B, Kelompok Kontrol A sering kali melanggar batasan dan terus menelepon, sementara Kelompok Kontrol B secara konsisten mematuhi batasan tersebut.
 >
 
-Eksperimen 2-7 adalah demonstrasi kualitatif kecil yang memberi intuisi. Untuk mengukur seberapa berguna pendekatan “hitung lebih dahulu, lalu lihat langsung” ini dan di mana batasnya, penulis dan kolaborator memakai benchmark khusus[^ch2-7] (pendekatan ini bernama **Context Distillation**; Agent Status Bar adalah bentuknya yang paling umum). Kesimpulan:
+Eksperimen menunjukkan[^ch2-8] bahwa memberi model **status bar yang sudah dihitung sebelumnya** dapat membuat **akurasi model terbuka yang lebih kecil mendekati model besar frontier**. Selain itu, **status bar dapat sangat meningkatkan efisiensi penalaran model**, menurunkan token penalaran, latensi, dan biaya setiap iterasi Agent sekitar satu orde magnitudo. Tanpa status bar, kebutuhan penalaran setiap kueri **terus bertambah** seiring memanjangnya context; dengan status bar, kebutuhannya menjadi **nyaris konstan**.
 
-- Dengan **status bar yang telah dihitung**, **model yang lemah memulihkan akurasinya**. Model-model terlemah meningkat 40 hingga 54 poin persentase, dan pada tugas ini model lokal 2B bahkan menyamai model frontier tanpa status bar.
-- **Model kuat sudah menjawab dengan benar; yang dihemat adalah efisiensi.** Status bar yang sama menurunkan penalaran, latensi, dan biaya per kueri kira-kira satu orde besaran (memangkas 80–90% atau lebih token penalaran).
-- Perubahan paling mendasar adalah: tanpa status bar, penalaran per kueri **terus bertambah** saat context memanjang; dengan status bar, jumlahnya menjadi **hampir konstan**. Sepanjang apa pun context, model hanya perlu “melirik” beberapa kotak status.
-
-
-Namun, prakomputasi yang dilakukan dengan benar dan salah memberikan hasil yang sangat berbeda. Tiga pelajaran:
-
-**1. Pelihara status bar dengan kode, bukan dengan LLM.** Mungkin tampak natural untuk meminta LLM lain untuk membaca riwayat dan meringkas status bar, tetapi eksperimen menemukan bahwa kinerjanya sangat buruk. Fungsi ekspresi reguler 20 baris mencapai tingkat akurasi ground-truth, sedangkan model frontier yang memproses riwayat lengkap dalam satu batch justru menghasilkan banyak entri salah dan mengurangi akurasi hilir di bawah batas acuan (baseline) tanpa status bar. Meminta LLM untuk meringkas riwayat yang panjang dalam satu langkah semata memindahkan masalah asli dari pemindaian context ke tempat lain. Alternatif yang layak adalah **menggunakan kode sebisa mungkin**; jika LLM diperlukan, minta ia untuk **mengekstrak item satu per satu lalu menggabungkannya dengan kode, alih-alih meringkas seluruh riwayat dalam satu proses**.
-
-**2. Jangan hapus context asli.** Status bar adalah **proyeksi lossy** dari context asli: ia hanya menghitung dimensi yang Anda perkirakan akan ditanyakan. Jika status bar sudah cukup untuk tugas seperti penghitungan dan pelacakan state, Anda dapat menghapus catatan asli dan menyimpan status bar saja untuk menghemat banyak token; tetapi jika pertanyaan menyentuh dimensi yang tidak dihitung status bar, akurasi dengan status bar saja akan runtuh.
-
-**3. Pantau akurasi status bar sebagai metrik produksi utama.** Eksperimen menemukan bahwa **model hampir selalu memercayai status bar**: jika tertulis “dipanggil 3 kali”, model menerimanya sebagai tiga kali tanpa memeriksa atau menghitung ulang. Inilah alasan status bar efektif, tetapi kesalahan di dalamnya juga akan diteruskan **apa adanya** ke jawaban akhir. Karena itu, risiko **peracunan status bar** yang disebutkan sebelumnya perlu ditanggapi serius.
-
-[^ch2-7]: Li, Bojie dan Noah Shi. *Distill, Don't Retrieve: Inference-Time Context Distillation for LLM Agent Reasoning.* 2026. https://01.me/research/context-distillation
+[^ch2-8]: Li, Bojie dan Noah Shi. *Distill, Don't Retrieve: Inference-Time Context Distillation for LLM Agent Reasoning.* 2026. https://01.me/research/context-distillation
 
 ### Komposisi Agent Status Bar
 
-Berdasarkan dasar teori di atas, Agent Status Bar menyertakan tipe-tipe informasi berikut:
+Agent Status Bar menyertakan tipe-tipe informasi berikut:
 
 **Perencanaan Tugas (Task Planning)**: Ketika Agent menangani tugas multi-langkah yang kompleks, trajectory-nya bisa menjadi sangat panjang. Agent cenderung terlalu fokus pada sub-tugas lokal saat ini, melupakan permintaan awal pengguna, batasan inti, dan pekerjaan selanjutnya. Menempatkan daftar TODO yang memecah tugas menjadi langkah-langkah jelas pada bagian akhir trajectory akan secara terus-menerus mengingatkan model mengenai progres saat ini dan tujuan di masa depan, membantu menyelaraskan tindakannya dengan rencana keseluruhan.
 
@@ -867,9 +913,7 @@ Berdasarkan dasar teori di atas, Agent Status Bar menyertakan tipe-tipe informas
 
 **Ringkasan Observasi Lingkungan Saat Ini**: Meliputi informasi lingkungan yang dinamis (waktu sistem, direktori kerja, dll.), peringatan operasi yang tidak normal ("Tool ini telah dipanggil N kali berulang"), dan transformasi dari status implisit menjadi observasi eksplisit. Prinsip desain ini juga berlaku untuk antarmuka manusia—baik Command Line Interfaces (CLI) maupun Graphical User Interfaces (GUI) bertujuan untuk membiarkan pengguna memantau dengan jelas status sistem saat ini.
 
-**Daftar Kemampuan yang Tersedia (Available Capability List)**: Saat kerangka kerja Agent mendukung ekstensi kapabilitas berbasis plugin (seperti sistem Skills dari bagian sebelumnya), daftar metadata dari semua Skills yang diinstal juga disalurkan melalui jalur injeksi di bagian akhir context yang sama ini. Ini memberi tahu model tentang kapabilitas khusus apa yang saat ini tersedia. Informasi ini jarang berubah (hanya saat pengguna menginstal atau menghapus instalasi Skill), dan mekanisme pengiriman bertahap (incremental sending)-nya telah dirinci pada bagian Skills sebelumnya, sehingga tidak akan diulangi di sini.
-
-Informasi side-channel dan daftar kemampuan yang tersedia biasanya tidak berubah setelah ditambahkan, menjadikannya ramah-cache karena mereka tidak membatalkan prefix yang tersimpan di cache. Perencanaan tugas dan ringkasan observasi lingkungan bersifat dinamis dan harus ditambahkan di akhir context sebagai pesan pengguna (user messages) khusus, kemudian diperbarui seiring berjalannya tugas. Metode pembaruan memengaruhi biaya KV Cache secara langsung, seperti yang dibahas di bawah ini.
+Informasi kanal samping suatu peristiwa biasanya dilampirkan bersama peristiwanya; sebaliknya, perencanaan tugas dan keadaan lingkungan terus diperbarui seiring tugas berjalan. Bagaimana informasi dinamis ini dituliskan ke dalam riwayat percakapan berhubungan langsung dengan biaya KV Cache, dan hal itu akan dibahas berikut ini bersama struktur pesan yang konkret.
 
 ### Posisi Spesifik Agent Status Bar di dalam Context
 
@@ -879,7 +923,7 @@ Detail implementasi yang penting adalah bahwa Agent Status Bar disisipkan pada a
 
 Berikut adalah daftar pesan sesungguhnya yang disusun oleh kerangka kerja Agent selama panggilan API ke-N:
 
-```
+```text
 messages: [
   { role: "system",    content: "Anda adalah asisten layanan pelanggan..." }  ← Tetap (tersimpan di KV Cache)
   { role: "user",      content: "Tolong batalkan paket Xfinity saya" }  ← Permintaan asli pengguna
@@ -906,13 +950,15 @@ Desain ini menerapkan prinsip inti dari bagian KV Cache pada status bar: tambahk
 
 "Menambahkan tidak merusak cache" hanya berlaku untuk satu penyisipan (single injection). Status secara alami berubah seiring berjalannya waktu: item TODO diselesaikan, jumlah tool meningkat, dan pesan status sebelumnya menjadi usang. Ada dua cara untuk memperbarui status bar, masing-masing dengan biaya cache yang berbeda:
 
-**Implementasi 1: Mengganti setiap putaran.** Sebelum setiap panggilan API, hapus pesan status putaran sebelumnya dari daftar pesan dan tambahkan status terbaru di akhir. Hal ini hanya menyisakan satu status saat ini di dalam context. Biayanya adalah penghapusan status lama tersebut akan membatalkan semua konten cache setelah posisinya, yang merupakan mekanisme pembatalan (invalidation mechanism) yang sama seperti yang dibahas di bagian "stempel waktu dinamis (dynamic timestamp)" bab ini. Perbedaannya adalah karena pesan status berada di dekat bagian akhir context, rentang pembatalan terbatas pada beberapa putaran pesan terbaru alih-alih keseluruhan awalan.
+**Implementasi 1: Mengganti setiap putaran.** Sebelum setiap panggilan API, hapus pesan status putaran sebelumnya dari daftar pesan dan tambahkan status terbaru di akhir. Hal ini hanya menyisakan satu status saat ini di dalam context. Biayanya adalah penghapusan status lama tersebut akan membatalkan semua konten cache setelah posisinya, yang merupakan mekanisme pembatalan (invalidation mechanism) yang sama seperti yang dibahas di bagian "stempel waktu dinamis (dynamic timestamp)" bab ini. Perbedaannya adalah karena pesan status berada di dekat bagian akhir context, rentang pembatalan terbatas pada pesan yang ditambahkan sejak penyisipan status sebelumnya—biasanya satu putaran—alih-alih keseluruhan awalan.
 
 **Implementasi 2: Penambahan persisten (Persistent appending).** Setelah diinjeksi, pesan status akan tetap berada di trajectory secara permanen, dan status baru akan ditambahkan di bagian akhir setiap putaran. `<system-reminder>` dari Claude Code menggunakan pendekatan ini: pesan-pesan status historis tetap berada di dalam transkrip dan tidak pernah dihapus atau dimodifikasi. Metode ini sepenuhnya ramah-cache karena pesan-pesan hanya ditambahkan, tidak pernah diubah, sehingga awalan tetap stabil. Biayanya adalah status-status usang akan terakumulasi di dalam context, menghabiskan token dan mengharuskan model untuk mengandalkan status terbaru sambil mengabaikan status yang sudah usang.
 
-Aturan praktisnya adalah: **ketika pembaruan status terjadi secara sering dan trajectory-nya panjang, pilih Implementasi 2**. Mengganti status setiap putaran akan berulang kali membatalkan entri cache pada trajectory yang panjang, yang bisa lebih memakan biaya ketimbang membawa pesan status yang sudah usang. **Ketika trajectory-nya pendek atau satu pesan statusnya besar** (misalnya, daftar TODO lengkap plus snapshot lingkungan), **pilih Implementasi 1**. Pembatalan cache selama beberapa putaran terakhir tidaklah mahal, dan context tetap bersih dan tidak ambigu.
+Pilihan bergantung pada panjang trajectory, ukuran status, panjang akhiran yang ditambahkan di antara pembaruan, dan jumlah pembaruan yang diperkirakan. **Pilih Implementasi 2 ketika statusnya kecil, banyak pesan dihasilkan di antara pembaruan, dan panjang sesi dibatasi**—mempertahankan status lama biasanya lebih murah daripada berulang kali menghitung ulang akhiran yang panjang. **Pilih Implementasi 1 ketika statusnya besar, pembaruan sering terjadi, atau trajectory-nya panjang**—cara ini biasanya hanya membatalkan akhiran pendek setelah penyisipan sebelumnya sekaligus mencegah penumpukan status usang.
 
-> **Eksperimen 2-8 ★★: Beberapa Teknik Agent Status Bar yang Berguna**
+Model perkiraan dapat menunjukkan titik impas. Misalkan setiap status berisi $S$ token, sebanyak $R$ token ditambahkan di antara pembaruan, jumlah pembaruan yang diperkirakan adalah $N$, dan biaya input cache adalah $\alpha$ kali biaya input biasa. Dengan mengabaikan biaya yang sama pada kedua pendekatan, $C_{\text{ganti}} \approx (N-1)(1-\alpha)R$ dan $C_{\text{tambah}} \approx \alpha S N(N-1)/2$. Jadi, pilih Implementasi 2 ketika $\alpha SN/2 < (1-\alpha)R$; jika tidak, pilih Implementasi 1. Perkiraan ini tidak mencakup penggunaan context dan ambiguitas akibat status usang, sehingga pilihan akhir juga harus mempertimbangkan tarif cache penyedia dan tingkat hit yang terukur.
+
+> **Eksperimen 2-9 ★★: Beberapa Teknik Agent Status Bar yang Berguna**
 >
 > Kerangka kerja eksperimental `agent-status-bar` mengimplementasikan lima teknik status bar, yang masing-masing dapat diaktifkan atau dinonaktifkan secara independen:
 >
@@ -933,22 +979,29 @@ Aturan praktisnya adalah: **ketika pembaruan status terjadi secara sering dan tr
 
 Teknik Agent Status Bar memiliki satu keunggulan praktis: semua metainformasi muncul di dalam context dalam bentuk yang dapat dibaca manusia, sehingga developer dapat memeriksa kapan saja informasi apa yang diterima Agent dan keputusan apa yang dibuatnya. Yang lebih penting, teknik ini tidak invasif terhadap model—tidak memerlukan fine-tuning dan dapat langsung digunakan pada model bahasa apa pun.
 
+Pemeliharaan status bar perlu memperhatikan dua hal:
+
+1. **Sebisa mungkin, pelihara status bar dengan kode. Jika LLM benar-benar diperlukan, ekstrak butir satu per satu lalu rangkum dengan kode; jangan pernah memintanya menghitung secara batch sekaligus**. Eksperimen menemukan bahwa **model hampir selalu memercayai status bar tanpa syarat**: tulis “3 panggilan telah dilakukan,” dan model akan menerimanya tanpa menghitung ulang. LLM memang mudah keliru saat menghitung, sehingga risiko **status-bar poisoning** yang disebut sebelumnya juga perlu ditanggapi serius.
+
+2. **Jangan hapus context asli**. Status bar adalah **proyeksi lossy** dari context asli: ia hanya menghitung lebih dulu dimensi yang Anda perkirakan akan ditanyakan. Jika status bar sudah cukup—seperti untuk menghitung dan melacak keadaan—rekaman mentah dapat dihapus untuk menghemat banyak token. Namun, bila satu saja pertanyaan berada di luar dimensi tersebut, akurasi akan anjlok jika hanya status bar yang tersisa.
+
+Agent Status Bar adalah salah satu teknik **kompresi context** (Context Compression). Bagian berikut memperkenalkan teknik kompresi context lainnya.
+
 ## Strategi Kompresi Context
 
 Bagian-bagian sebelumnya membahas apa yang perlu disertakan dalam context: prompt engineering menentukan apa yang ditulis, Skills menentukan apa yang dimuat sesuai kebutuhan, dan Agent Status Bar menentukan informasi meta yang diinjeksi. Namun, seiring bertambahnya putaran interaksi, context terus mengembang. Bagian ini beralih ke persoalan sebaliknya: **bagaimana mengurangi konten dalam context**—kapan dan bagaimana melakukan kompresi, serta mengapa kompresi dapat berguna bahkan sebelum context window penuh.
 
 ### Mengapa Kompresi Diperlukan: Bukan Semata Isu Kepanjangan
 
-Kompresi context dipicu oleh dua motivasi tersendiri. Mengerti keduanya sangatlah krusial untuk merancang strategi kompresi yang efektif.
+Kompresi context dipicu oleh tiga motivasi tersendiri. Memahami ketiganya sangatlah krusial untuk merancang strategi kompresi yang efektif.
 
 **Pertama, mengatasi batas panjang dan biaya.** Context window memiliki kapasitas terbatas (misalnya, 128K token), sedangkan hasil pemanggilan tool sering mencapai puluhan ribu karakter. Beberapa putaran interaksi saja dapat memenuhi jendela tersebut dan menghentikan tugas sebelum selesai. Semakin banyak token juga berarti biaya API yang lebih tinggi dan latensi inferensi yang meningkat tajam.
 
-**Kedua, meningkatkan kualitas penalaran—pengetahuan yang telah diringkas lebih berguna bagi model daripada informasi mentah.** Motivasi ini lebih mendasar dan mudah terlewatkan. Sekalipun context window cukup besar, memasukkan seluruh informasi mentah ke dalam context belum tentu merupakan pilihan terbaik.
+**Kedua, meningkatkan kualitas berpikir—pengetahuan yang sudah dirangkum lebih mudah dipakai model daripada bentuk mentahnya.** Motivasi ini lebih dalam lapisannya dan juga lebih mudah terabaikan. Sekalipun jendela konteks cukup besar, menumpuk seluruh informasi mentah di dalam konteks bukanlah pilihan optimal: hasil mentah belasan putaran pencarian berserak di berbagai penjuru konteks, sehingga pada setiap keputusan model harus berulang kali mencari potongan yang relevan di antara puluhan ribu token, perhatiannya terpecah, dan informasi kunci mudah terlewat. Sebaliknya, bila satu panggilan LLM lebih dulu merangkum informasi yang sudah ada menjadi bentuk terstruktur—"yang sudah diketahui: A adalah…, B adalah…, masih kurang informasi tentang C"—maka pemikiran selanjutnya dapat langsung memakai representasi ringkas itu. Bagian berikutnya menjelaskan mekanisme di baliknya.
 
-Pertimbangkan contoh konkret: saat mengerjakan tugas kompleks, sebuah Agent mengumpulkan informasi tentang suatu topik melalui sepuluh pencarian web. Hasil pencarian mentah tersebut tersebar di seluruh context—hasil putaran kedua berada dekat bagian awal, sedangkan hasil putaran kesembilan berada dekat bagian akhir. Ketika Agent harus mengambil keputusan akhir berdasarkan seluruh informasi itu, ia perlu menemukan kembali potongan-potongan relevan yang tersebar di antara puluhan ribu token. Perhatiannya menjadi terpencar dan informasi penting mudah terlewat.
+**Ketiga, meredakan kecemasan context (Context Anxiety) pada model**[^ch2-7]. Ketika model menganggap context window akan segera habis, model dapat mulai menuntaskan pekerjaan sebelum tugas selesai. Melakukan kompresi context jauh sebelum jendela mendekati batasnya dapat meningkatkan kualitas keputusan model.
 
-Namun, setelah pencarian kesepuluh, satu panggilan LLM dapat menghasilkan ringkasan terstruktur dari informasi yang terkumpul: "Yang diketahui saat ini: A adalah..., B adalah..., sedangkan informasi tentang C masih belum tersedia." Model kemudian dapat menggunakan representasi pengetahuan yang telah dirapikan ini dalam penalaran berikutnya tanpa harus mengekstraknya kembali dari data mentah.
-
+[^ch2-7]: Prithvi Rajasekaran, [“Harness design for long-running application development”](https://www.anthropic.com/engineering/harness-design-long-running-apps), Anthropic Engineering, 2026.
 
 ### Mekanisme Internal In-Context Learning: Retrieval, Bukan Penalaran
 
@@ -959,22 +1012,15 @@ Sebuah contoh sederhana akan membuat ide "retrieval, bukan penalaran" menjadi ko
 > Kandang 1: Kucing hitam. Kandang 2: Kucing putih. Kandang 3: Kucing hitam. Kandang 4: Kucing hitam. Kandang 5: Kucing putih.
 > ... (total 100 kandang, 90 kucing hitam, 10 kucing putih)
 
-Saat Anda bertanya pada model, "Ada berapa banyak kucing hitam dan kucing putih?" apa yang terjadi?
-
-Jika penalaran tidak diaktifkan, model akan kesulitan memberikan jawaban yang benar secara langsung—karena mekanisme atensi ahli dalam **mencari** ("Kucing apa yang ada di kandang 37?"), bukan **mengagregasi** ("Berapa total kucing hitam?"). Yang terakhir ini membutuhkan penelusuran seluruh catatan dan pemeliharaan state penghitungan, yang pada dasarnya merupakan penalaran, bukan pencarian.
-
-Jika penalaran diaktifkan, model bisa mendapatkan jawaban yang benar dengan menghitung satu per satu. Biayanya adalah setiap kali pertanyaan ini diajukan, ia harus mulai menghitung dari awal, menghasilkan banyak token penalaran. Dalam skenario Agent, jika informasi statistik semacam ini perlu digunakan berulang kali (misalnya, untuk setiap keputusan), biaya penalaran kumulatifnya menjadi sangat tinggi.
-
-Namun, jika kita merangkum catatan tersebut sebelumnya dan menuliskan "Statistik saat ini: 90 kucing hitam, 10 kucing putih" secara langsung ke dalam context, model dapat menarik (retrieve) kesimpulan itu tanpa mengulang penghitungan. **Ini adalah nilai kedua dari kompresi: mengubah kesimpulan yang membutuhkan penalaran menjadi pengetahuan yang dapat ditarik secara langsung.**
+Ketika Anda bertanya "ada berapa kucing hitam dan berapa kucing putih?", model yang tidak mengaktifkan rantai pemikiran sulit menjawab benar secara langsung: **pencarian** ("kucing apa di kandang 37?") adalah keunggulan atensi, sedangkan **agregasi statistik** ("berapa jumlah kucing hitam seluruhnya?") menuntut penelusuran seluruh catatan sambil memelihara keadaan hitungan—pada hakikatnya berpikir, bukan mengambil kembali. Mengaktifkan rantai pemikiran tentu bisa menghitung dengan benar, tetapi setiap kali ditanya ia harus menghitung dari awal; dalam skenario Agent statistik semacam ini kerap dipakai berulang-ulang, sehingga biaya berpikir yang menumpuk sangat tinggi. Sebaliknya, jika kita merangkum sekali di muka dan langsung menuliskan "statistik saat ini: 90 kucing hitam, 10 kucing putih" ke dalam konteks, model seketika dapat mengambil kesimpulan itu. **Inilah nilai kedua kompresi: mengubah kesimpulan yang hanya diperoleh lewat berpikir menjadi pengetahuan yang bisa langsung diambil.**
 
 Selain itu, context yang panjang menurunkan presisi retrieval. Bahkan ketika context window masih jauh dari penuh, Agent dapat mendadak gagal menemukan informasi kunci atau terus berkutat pada masalah yang sudah lama terpecahkan. Fenomena ini disebut **Kebusukan Context (Context Rot)**.
 
 Context rot berbeda dari context overflow atau kehabisan ruang jendela. Overflow berarti “sudah tidak muat”, sedangkan rot berarti “masih muat tetapi tidak dapat ditemukan”. Yang terakhir lebih tersembunyi karena Agent tampak tetap bekerja normal sementara kualitas keputusannya diam-diam memburuk. Ketika context memanjang, atensi tersebar ke lebih banyak token dan isi yang berguna semakin sulit diperhatikan, terutama bila informasi yang tidak relevan mendominasi. Ini seperti mencari satu buku di perpustakaan besar: makin banyak buku yang tidak relevan di rak, makin sulit menemukan sasaran.
 
-
 Ini mengungkap prinsip perancangan kompresi context: alih-alih mengharapkan model untuk belajar secara otomatis dari context yang panjang, kita harus menyuling (distill) pengetahuan tersebut secara eksplisit. Walaupun hal ini memerlukan komputasi tambahan untuk perangkuman, itu menghasilkan representasi yang padat informasi dan ringkas (compact). **Jangan buat model menelusuri secara pasif lautan materi mentah; sebaliknya berikan pengetahuan terstruktur yang telah diolah (refined).**
 
-Dari perspektif ini, in-context learning lebih seperti mekanisme adaptasi cepat ketimbang pembelajaran sejati. Ia memungkinkan model menyesuaikan perilakunya dengan cepat selama inference agar cocok dengan tugas tertentu, tetapi penyesuaian ini bersifat sementara dan dangkal, hilang setelah sesi tersebut berakhir. Penelitian teoretis terbaru[^ch2-6] mendukung penilaian ini: ketika model melihat contoh di dalam context, perilakunya seperti telah "disesuaikan sementara (temporarily customized)"—tanpa mengubah parameter model, tetapi dengan efek yang mirip dengan sesi pelatihan khusus yang kecil. Ini menjelaskan mengapa contoh few-shot di bagian prompt engineering dapat meningkatkan kualitas output secara signifikan, dan juga mengapa peningkatan ini tidak berakumulasi lintas-sesi—ini secara mendasar berbeda dengan pelatihan parameter sejati.
+Dari perspektif ini, in-context learning memungkinkan model menyesuaikan perilakunya dengan cepat selama inference agar cocok dengan tugas tertentu, tetapi penyesuaian ini bersifat sementara dan dangkal, hilang setelah sesi tersebut berakhir. Penelitian teoretis terbaru[^ch2-6] mendukung penilaian ini: ketika model melihat contoh di dalam context, perilakunya seperti telah "disesuaikan sementara (temporarily customized)"—tanpa mengubah parameter model, tetapi dengan efek yang mirip dengan sesi pelatihan khusus yang kecil. Ini menjelaskan mengapa contoh few-shot di bagian prompt engineering dapat meningkatkan kualitas output secara signifikan, dan juga mengapa peningkatan ini tidak berakumulasi lintas-sesi.
 
 [^ch2-6]: Benoit Dherin et al., "Learning without training", 2025.
 
@@ -990,7 +1036,7 @@ Kuncinya adalah memahami **waktu dan lokasi** kompresi. Kompresi tidak memodifik
 
 ![Gambar 2-16: Perbandingan Strategi Kompresi Context](images/fig2-16.svg)
 
-> **Eksperimen 2-9 ★★★: Perbandingan Strategi Kompresi Context**
+> **Eksperimen 2-10 ★★★: Perbandingan Strategi Kompresi Context**
 >
 > Kami merancang tugas riset untuk mengidentifikasi dan melacak status pekerjaan para pendiri OpenAI. Tugas ini memerlukan agregasi informasi multi-langkah, panjang hasil pencariannya sangat bervariasi (dari beberapa ribu hingga lebih dari seratus ribu karakter), dan kriteria keberhasilannya jelas. Dengan Kimi K3—model penalaran yang memiliki context native sekitar satu juta token, tetapi sengaja dibatasi pada 128K token dalam eksperimen ini—kami menerapkan enam strategi:
 >
@@ -998,14 +1044,14 @@ Kuncinya adalah memahami **waktu dan lokasi** kompresi. Kompresi tidak memodifik
 >
 > **Strategi 2 dan 3: Kompresi yang Tidak Sadar Tugas** — *Individual Summarization* membuat ringkasan 2–3 paragraf untuk setiap hasil pencarian secara terpisah, dengan rasio kompresi 10,9% (dalam buku ini, rasio kompresi berarti “ukuran setelah kompresi / ukuran asli”; angka yang lebih kecil berarti kompresi lebih agresif). Strategi ini menyelesaikan tugas, tetapi memerlukan 12 iterasi dan 276.608 token. Masalah utamanya adalah fragmentasi informasi—beberapa halaman berulang kali menjelaskan peristiwa yang sama dan membuang ruang context. *Combined Summarization* menggabungkan seluruh hasil menjadi satu ringkasan lengkap dengan rasio kompresi 4,3%, memerlukan 10 iterasi dan 93.449 token. Namun, input yang sangat panjang harus dipotong dan berisiko menghilangkan informasi di bagian akhir. Kelemahan keduanya adalah tidak memahami semantik sehingga tidak dapat membedakan relevansi informasi.
 >
-> **Strategi 4: Kompresi Sadar Context** — Inovasi intinya adalah memasukkan tujuan kueri saat ini dan informasi yang sudah terkumpul ke dalam proses kompresi. Prompt kompresi memuat “Given the search query: {query}” dan “Current context: {context}” untuk mengarahkan model membuat ringkasan yang terfokus. Hasilnya hanya memerlukan 7 iterasi dan 40.157 token, dengan rasio kompresi keseluruhan sekitar 3,0%. Dalam satu kasus, 147.877 karakter dipadatkan menjadi 1.963 karakter (sekitar 1,3%) sambil tetap mempertahankan informasi penting seperti nama pendiri dan perubahan jabatan. Pencarian berikutnya dapat mengekstraksi perubahan jabatan dan perusahaan baru sambil menyaring latar belakang historis serta konten duplikat. Keberhasilan ini didasarkan pada satu wawasan: dalam tugas multi-langkah, kepadatan dan jenis informasi yang dibutuhkan berubah menurut tahap—tahap awal membutuhkan pengumpulan luas, tahap tengah membutuhkan verifikasi fakta yang presisi, dan tahap akhir membutuhkan sintesis menyeluruh. Kompresi sadar context memaksimalkan nilai informasi dengan menyesuaikan fokusnya secara dinamis.
+> **Strategi 4: Kompresi Sadar Context** — Inovasi intinya adalah memasukkan tujuan kueri saat ini dan informasi yang sudah terkumpul ke dalam proses kompresi. Prompt kompresi memuat “Given the search query: {query}” dan “Current context: {context}” untuk mengarahkan model membuat ringkasan yang terfokus. Hasilnya hanya memerlukan 7 iterasi dan 40.157 token, dengan rasio kompresi keseluruhan sekitar 3,0%. Dalam satu kasus, sekitar 150 ribu karakter dipadatkan menjadi 2 ribu sambil tetap mempertahankan informasi penting yang dibutuhkan tugas berikutnya, seperti nama pendiri dan perubahan jabatan.
 >
-> **Strategi 5: Kompresi Sadar Context dengan Sitasi** — Strategi ini menambahkan asal-usul informasi ke dalam kompresi cerdas; setiap fakta disertai penanda sitasi URL sumber. Penggunaan token meningkat menjadi 222.992 dengan rasio kompresi 4,1%, tetapi sitasi memungkinkan verifikasi. Pendekatan ini menggabungkan kompresi semantik lossy dengan pengindeksan lossless: meskipun kontennya dipadatkan, tautan sumber yang dipertahankan memungkinkan sistem kembali ke materi asli.
+> **Strategi 5: Kompresi Sadar Context dengan Sitasi** — Strategi ini menambahkan asal-usul informasi ke dalam kompresi cerdas; setiap fakta disertai penanda sitasi URL sumber. Konten dipadatkan secara semantik (lossy), tetapi tautan sumber yang dipertahankan menjadi indeks lossless yang secara teori memungkinkan sistem kembali ke informasi asli kapan saja.
 >
 > **Strategi 6: Adaptive Windowing** — Wawasan utamanya adalah bahwa pada awal tugas, ruang context masih longgar sehingga kompresi tidak perlu dilakukan terburu-buru. Mekanisme kompresi baru aktif ketika kapasitas mendekati batas, sehingga integritas informasi asli dipertahankan selama mungkin. Implementasinya mencakup tiga mekanisme:
 >
-> - **Pemicu Ambang Batas**: Memantau penggunaan context secara terus-menerus. Kompresi hanya aktif ketika jumlah token prompt melampaui 80% dari window (102.400 token untuk window 128K).
-> - **Kompresi Batch**: Saat terpicu, seluruh hasil tool yang belum ditandai dikompresi sekaligus. Contohnya, sekitar iterasi keempat, ketika context terdeteksi melampaui ambang 102.400 token (dalam praktiknya terpicu pada sekitar 135.600 token), kesepuluh pesan tool yang belum dikompresi langsung dipadatkan.
+> - **Pemicu Ambang Batas**: Memantau penggunaan context secara terus-menerus dan hanya mengaktifkan kompresi ketika jumlah token prompt melampaui 80% dari window.
+> - **Kompresi Batch**: Saat terpicu, seluruh hasil tool yang belum ditandai dikompresi sekaligus. Contohnya, setelah context terdeteksi melampaui ambang 102.400 token, kesepuluh pesan tool yang belum dikompresi langsung dipadatkan
 > - **Pencegahan Duplikasi**: Menambahkan penanda `[COMPRESSED]` agar konten yang sudah dikompresi tidak diproses kembali.
 >
 > Walaupun total penggunaan token relatif tinggi (174.601), beberapa iterasi awal mempertahankan seluruh informasi asli dan memberikan fleksibilitas maksimum untuk pengumpulan informasi secara luas.
@@ -1024,40 +1070,28 @@ Eksperimen di atas menunjukkan perbedaan kinerja antarstrategi kompresi. Dalam p
 
 ### Prinsip Desain untuk Strategi Kompresi
 
-Kita telah membahas alasan kompresi—membatasi panjang dan meningkatkan penalaran—serta sifat dasar in-context learning sebagai "pencarian (retrieval)". Kita dapat menyimpulkan empat prinsip desain kompresi. Kompresi melayani tugas saat ini; jika riwayat dari berbagai tugas digabungkan secara offline, ini disebut evolusi berkelanjutan (Bab 8).
+Kita telah membahas tiga alasan kompresi—membatasi panjang, meningkatkan penalaran, dan meredakan kecemasan context—serta sifat dasar in-context learning sebagai "pencarian (retrieval)". Kita dapat menyimpulkan empat prinsip desain kompresi. Kompresi melayani tugas saat ini; jika riwayat dari berbagai tugas digabungkan secara offline, ini disebut evolusi berkelanjutan (Bab 9).
 
-- **Distribusi Nilai Informasi Tidak Seragam**: Titik keputusan kunci seperti daftar personil lebih penting daripada detail berita. Detail berita lebih penting daripada noise seperti bar navigasi.
-- **Integritas Semantik**: "Sutskever meninggalkan OpenAI pada Mei 2024" tak boleh disingkat jadi "Sutskever pergi". Waktu dan nama adalah hal mutlak.
-- **Relevansi Tugas**: Konten yang sama butuh kompresi berbeda untuk tugas berbeda, seperti "temukan pendiri" vs "pelajari latar belakang".
-- **Kompresi adalah Pemahaman**: Kompresi butuh pemahaman semantik yang dalam. Kompresi yang baik bisa ditinjau ulang di sesi lain.
-
-### Implikasi untuk Desain Arsitektur Agent
-
-Strategi kompresi context berdampak pada desain sistem Agent. **Kompresi adalah Pemahaman**: modul kompresi butuh pemahaman bahasa setara model utama, membentuk arsitektur panggilan model rekursif. **Strategi Kompresi Terkait Tipe Tugas**: tugas pencarian harus luas, tugas analisis harus dalam, tugas kreatif harus menjaga inspirasi. Agent masa depan harus bisa memilih strategi kompresi secara adaptif.
+- **Distribusi nilai informasi yang tidak merata**: titik keputusan yang krusial (seperti daftar nama personel) bernilai lebih tinggi daripada bukti pendukung (seperti detail berita), dan lebih tinggi lagi daripada derau yang mubazir (seperti bilah navigasi laman web, iklan footer, dan elemen sejenis)
+- **Keutuhan semantik**: "Sutskever meninggalkan OpenAI pada Mei 2024" tidak boleh dimampatkan menjadi "Sutskever pergi"—waktu dan nama perusahaan adalah informasi kunci yang tak boleh hilang
+- **Relevansi terhadap tugas**: isi yang sama semestinya menghasilkan hasil kompresi yang berbeda pada tugas "mencari daftar pendiri" dan pada tugas "memahami latar belakang pribadi". Lebih umum lagi: tugas bertipe pencarian perlu mempertahankan keluasan, tugas bertipe analisis perlu mempertahankan kedalaman, dan tugas bertipe kreasi perlu mempertahankan pemicu inspirasi; Agent yang ideal semestinya mampu memilih strategi kompresi secara adaptif menurut jenis tugas
+- **Kompresi adalah pemahaman**: kompresi yang efektif menuntut pemahaman semantik yang dalam, sehingga modul yang bertugas mengompres pun harus mendekati kemampuan model utama, membentuk arsitektur rekursif "model memanggil model". Untungnya, hasil kompresi yang eksplisit dapat diperiksa dan dipakai ulang lintas sesi
 
 Kompresi butuh komputasi tambahan lewat panggilan LLM, namun ia menghemat biaya token dan meningkatkan keberhasilan tugas. Eksperimen menunjukkan kompresi context-aware menghemat token hingga lebih dari 75%.
 
-Yang paling rawan hilang dari kompresi adalah **keputusan arsitektur awal, alasan batas (constraints), dan jalur gagal**. LLM suka menghapus informasi yang dianggap bisa dicari lagi. Di sistem tingkat produksi, tetapkan prioritas penyimpanan:
-
-1.  **Keputusan Arsitektur dan Batasan Kunci**: Tidak boleh diringkas.
-2.  **Daftar File Modifikasi dan Catatan Perubahan**: Simpan penuh.
-3.  **Status Verifikasi** (lolos/gagal): Wajib disimpan.
-4.  **TODO Belum Selesai dan Catatan Rollback**: Wajib disimpan.
-5.  **Output Tool**: Boleh dihapus, sisakan status lolos/gagal.
+Hal yang paling mudah hilang saat kompresi adalah keputusan arsitektur awal, alasan di balik batasan, dan jalur yang gagal. Karena itu, **Agent perlu sering menyimpan kemajuannya dalam bentuk dokumen**, bukan menyebarkan semua informasi di sepanjang riwayat eksekusi. Seperti informasi penting perusahaan yang harus didokumentasikan alih-alih disimpan dalam log chat, Agent juga perlu membiasakan diri menulis dan memperbarui dokumentasi. Jika model yang Anda gunakan tidak memiliki kebiasaan tersebut, ingatkan melalui prompt dan skill.
 
 ### Isolasi Konteks Sub-Agent
 
 Kompresi membuang informasi *setelah* informasi itu masuk ke context. Pendekatan yang lebih langsung adalah mencegah informasi perantara berukuran besar masuk ke context utama sejak awal. Inilah **Isolasi Context Sub-Agent**: Agent utama menyerahkan tugas yang menghasilkan banyak konten perantara, seperti "melakukan pencarian luas di codebase", kepada sub-agent mandiri. Sub-agent menuntaskan penelusuran di context-nya sendiri dan hanya mengirimkan ringkasan singkat sepanjang beberapa ratus token kepada Agent utama.
 
-Bandingkan dua cara untuk tugas "cari fungsi callback pembayaran". Jika Agent utama mencari sendiri, puluhan file dan ribuan token masuk ke context utamanya. Ini jadi noise yang kelak harus dikompres. Jika pakai sub-agent, context utama hanya mendapat pesan tugas dan kesimpulan singkat. Ribuan token sisa langsung dibuang bersama sub-agent.
+Bandingkan dua cara berikut dalam menangani tugas yang sama: "temukan fungsi yang menangani callback pembayaran di dalam basis kode". Bila Agent utama mencari sendiri, ia mungkin memasukkan puluhan ribu token kode mentah dari belasan berkas ke dalam konteks utamanya, dan sebagian besarnya—begitu sasaran ditemukan—merosot menjadi derau yang menduduki jendela secara permanen, yang masih harus dibersihkan lewat kompresi belakangan. Sebaliknya, bila didelegasikan kepada satu sub-Agent pencari, konteks utama hanya bertambah dua pesan: satu deskripsi tugas dan satu kesimpulan ("fungsinya adalah handle_callback di src/payment/callbacks.py, dengan dua titik pemanggilan lain"), sementara puluhan ribu token proses antaranya ikut terbuang bersama konteks sub-Agent.
 
-Ini adalah strategi **mengganti kompresi dengan isolasi**. Kompresi memakan biaya LLM tambahan, sementara isolasi mencegah noise masuk sejak awal dan menjaga KV Cache Agent utama. Syaratnya: sub-agent butuh instruksi tugas yang sangat jelas karena tak melihat context Agent utama. Context membatasi kemampuan Agent maupun sub-agent. Fitur Task Claude Code adalah contoh nyatanya. Bab 4 membahas sub-agent, Bab 10 membahas arsitektur context multi-agent.
+Pada hakikatnya ini adalah **mengganti kompresi dengan isolasi**: kompresi bersifat lossy dan merupakan penambalan setelah kejadian yang menuntut panggilan LLM tambahan; isolasi membuat derau terkedap dari konteks utama sejak awal, dan prefiks KV Cache Agent utama pun sama sekali tidak terganggu. Harganya, sub-Agent tidak dapat melihat konteks lengkap Agent utama, sehingga deskripsi tugas harus swasembada dan bersasaran jelas—dan ini kembali ke tema bab ini: mutu konteks menentukan batas atas kemampuan, dan itu berlaku pula bagi sub-Agent. Tool Task pada Claude Code serta sub-Agent pencari pada berbagai sistem Deep Research adalah implementasi produksi dari pola ini. Rancangan lengkap sub-Agent sebagai salah satu tool kolaborasi akan dibahas di Bab 4, sedangkan arsitektur konteks sistem multi-Agent menjadi tema Bab 10.
 
 ## Ringkasan Bab
 
-Di balik banyak detail teknisnya, bab ini memiliki satu argumen utama: apa yang Anda tunjukkan kepada model dan cara Anda menyusunnya sering kali lebih menentukan hasil akhir daripada kemampuan model itu sendiri. Struktur pesan API menentukan struktur dasar context; KV Cache membatasi apa yang dapat dan tidak dapat diubah; prompt engineering dan Agent Skills menentukan cara memberikan instruksi statis serta pengetahuan dinamis kepada model secara efisien; Agent Status Bar mengubah keadaan implisit menjadi informasi eksplisit yang dapat langsung digunakan; dan strategi kompresi mengatasi context yang terus membesar, bukan hanya dengan mengendalikan panjangnya, tetapi juga dengan secara aktif merangkum data mentah menjadi pengetahuan terstruktur yang padat informasi.
-
-Benang merah semua teknik tersebut adalah pengelolaan informasi yang eksplisit dan direkayasa: alih-alih membiarkan model mencari petunjuk secara pasif dalam context yang sangat besar, kita secara proaktif memberinya keadaan yang sudah disaring dan terstruktur. Setiap teknik dalam bab ini, dari tata letak context yang ramah KV Cache hingga kompresi yang sadar context, merupakan praktik konkret penggunaan rekayasa untuk memaksimalkan efisiensi informasi pada batas kemampuan model saat ini.
+Benang merah rekayasa konteks adalah mengelola informasi secara eksplisit: struktur pesan API mendefinisikan kerangkanya; prefiks yang stabil menaikkan tingkat hit KV Cache; prompt, Skills, dan bilah status masing-masing memikul aturan, pengetahuan sesuai kebutuhan, serta keadaan saat ini; sedangkan kompresi meningkatkan kerapatan informasi riwayat dengan tetap mempertahankan keputusan, batasan, kegagalan, dan sumber.
 
 Bab ini membahas pembaruan keadaan dan degradasi context **di dalam satu tugas**. Bab berikutnya beralih dari pengelolaan informasi dalam satu context window ke sistem pengetahuan persisten yang melintasi berbagai tugas: user memory dan knowledge base. Sistem ini memungkinkan Agent mengumpulkan pengalaman dari waktu ke waktu dan secara bertahap menjadi asisten yang lebih memahami pengguna, atau pakar dengan pengetahuan yang lebih khusus di suatu bidang.
 

@@ -65,7 +65,7 @@ class ExternalTools:
                 creds = flow.run_local_server(port=0)
             
             # Save token
-            token_path.write_text(creds.to_json())
+            token_path.write_text(creds.to_json(), encoding="utf-8")
         
         self._google_service = build('calendar', 'v3', credentials=creds)
         return self._google_service
@@ -257,7 +257,7 @@ class ExternalTools:
 
             # Query before mutation so a retry cannot create a duplicate PR.
             # This implements the idempotency rule described immediately before
-            # Experiment 4-3 in the manuscript.
+            # Experiment 4-4 in the manuscript.
             owner = repo_name.split("/", 1)[0]
             existing = repo.get_pulls(
                 state="open", head=f"{owner}:{head_branch}", base=base_branch

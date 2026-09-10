@@ -41,7 +41,7 @@ def evenly_sample(rows: list[Any], maximum: int) -> list[Any]:
 
 
 def seed_node_counts(output: Path) -> dict[str, int]:
-    seed = output / "storage" / "exp10_7_history_seed" / "personas"
+    seed = output / "storage" / "exp10_5_history_seed" / "personas"
     result = {}
     for persona in seed.iterdir():
         if persona.is_dir():
@@ -199,7 +199,7 @@ def load_canonical_judgments(receipts_path: Path) -> list[dict]:
 
     if not receipts_path.exists():
         return []
-    rows = [json.loads(line) for line in receipts_path.read_text().splitlines() if line]
+    rows = [json.loads(line) for line in receipts_path.read_text(encoding="utf-8").splitlines() if line]
     failed = [row for row in rows if not row.get("success")]
     if not failed:
         return rows
@@ -304,7 +304,7 @@ def main() -> int:
             preferences["no_reflection"] += 1
     summary = {
         "schema_version": 1,
-        "experiment": "10-7",
+        "experiment": "10-5",
         "model": args.model,
         "judgments": len(successful),
         "preferences": preferences,
@@ -319,7 +319,7 @@ def main() -> int:
     }
     (analysis / "plausibility_summary.json").write_text(
         json.dumps(summary, indent=2) + "\n"
-    )
+    , encoding="utf-8")
     print(json.dumps(summary, indent=2))
     return 0
 

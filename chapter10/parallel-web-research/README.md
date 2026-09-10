@@ -12,6 +12,16 @@ Implemented requirements:
 - Context creation/closure counters make leaked browser sessions an explicit failing audit.
 - Serial and parallel paths visit the same live sites and use the same extraction function; wall-clock time and speedup are measured, not estimated.
 
+## Code map
+
+- **Run first:** python demo.py --target "Professor Name" --sites-json sites.example.json --agents 3.
+- **Start here:** agents.py::search_one and the Manager run path in run_official_experiment.py.
+- **Core behavior:** worker navigation/extraction, async message bus, first-target settlement and cancellation.
+- **State / protocol:** task IDs, status/result/terminate events, worker registry and manifest.
+- **Verifier:** evidence-constrained extraction, acceptance gates, lock-protected single winner, acknowledgement count and browser-context closure.
+- **Experiment variable:** site count, serial versus parallel scheduling and cascade timing.
+- **Skip on first pass:** provider request serialization, HTML fixtures and report formatting.
+
 ## Run
 
 ```bash
@@ -41,7 +51,7 @@ For the provenance-complete acceptance campaign (the default comparison plus
 the four-worker live cascade in one run):
 
 ```bash
-python run_official_experiment.py --run-id exp10-6-real-receipts-YYYYMMDD-vN
+python run_official_experiment.py --run-id exp10-4-real-receipts-YYYYMMDD-vN
 ```
 
 This runner stores full rendered browser observations, credential-free raw SDK
@@ -61,7 +71,7 @@ python demo.py --target 'Professor Name' --sites-json sites.example.json --agent
 On 2026-07-29, the default ten-page Stanford run found Andrew Ng on the live Stanford HAI page using ARK extraction. Parallel wall time was 18.542 s; serial time was 58.264 s, a measured 3.142× speedup. All 10 parallel and 10 serial browser contexts closed. The live cascade stress run produced one winner, one terminate broadcast, three losing-worker acknowledgements, and 4/4 closed contexts.
 
 The current provenance-complete campaign is
-[`validation/runs/exp10-6-real-receipts-20260730-v2/manifest.json`](validation/runs/exp10-6-real-receipts-20260730-v2/manifest.json).
+[`validation/runs/exp10-4-real-receipts-20260730-v2/manifest.json`](validation/runs/exp10-4-real-receipts-20260730-v2/manifest.json).
 All 12 acceptance gates passed: the ten-site parallel and serial paths both
 found the target and closed all 20 contexts; the measured speedup was 1.872×;
 the cascade produced one broadcast, three loser acknowledgements, and 4/4
